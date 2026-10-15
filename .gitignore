@@ -1,0 +1,44 @@
+# ============================================
+# ExamSphere Root .gitignore
+# Critical: Keep credentials & dependencies safe
+# ============================================
+
+# Environment variables & secrets (NEVER commit these)
+.env
+.env.*
+*.env
+**/.env
+backend/.env
+!.env.example
+!**/.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production build outputs
+dist/
+dist-ssr/
+build/
+
+# Uploads & Temporary files (keep folder, ignore uploaded files)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

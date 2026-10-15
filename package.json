@@ -1,0 +1,20 @@
+{
+  "name": "examsphere-root",
+  "version": "1.0.0",
+  "description": "ExamSphere - Automated Exam Management System Root Workspace",
+  "scripts": {
+    "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run backend\" \"npm run frontend\"",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run backend\" \"npm run frontend\"",
+    "backend": "npm start --prefix backend",
+    "frontend": "npm run dev --prefix frontend",
+    "test": "npm test --prefix backend"
+  },
+  "keywords": [
+    "examsphere"
+  ],
+  "author": "ExamSphere Team",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
