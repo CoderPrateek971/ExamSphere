@@ -69,11 +69,11 @@ export default function DevSandboxView() {
     {
       id: '8',
       name: 'Exam-Day Incident Management',
-      description: 'Submit Unfair Means (UFM) reports with photo evidence and written statements, manage incident records and find substitute invigilators.',
-      status: 'Ready for Implementation',
-      endpoints: ['POST /api/ufm/report', 'POST /api/doubts/ping', 'POST /api/substitute/find'],
-      icon: Clock,
-      color: '#06b6d4'
+      description: 'Submit and view student cheating reports with photo proof, classroom location, and what was found.',
+      status: 'COMPLETED & LIVE',
+      endpoints: ['POST /api/incidents/ufm', 'GET /api/incidents/ufm', 'PUT /api/incidents/ufm/:id/action', 'GET /api/incidents/stats'],
+      icon: CheckCircle2,
+      color: '#10b981'
     },
     {
       id: '9',

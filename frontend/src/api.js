@@ -182,5 +182,34 @@ export const api = {
     return this.request('/duty/reset-all', {
       method: 'POST'
     });
+  },
+
+  // Module 8: Exam-Day Incident Management (UFM)
+  getIncidents(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/incidents/ufm${query ? `?${query}` : ''}`);
+  },
+  getIncident(id) {
+    return this.request(`/incidents/ufm/${id}`);
+  },
+  submitIncident(data) {
+    return this.request('/incidents/ufm', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  updateIncidentAction(id, actionData) {
+    return this.request(`/incidents/ufm/${id}/action`, {
+      method: 'PUT',
+      body: JSON.stringify(actionData)
+    });
+  },
+  getIncidentStats() {
+    return this.request('/incidents/stats');
+  },
+  deleteIncident(id) {
+    return this.request(`/incidents/ufm/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
