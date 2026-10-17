@@ -98,13 +98,29 @@ class AuthService {
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
+    let department = user.role === 'ADMIN' ? 'Examination Cell' : 'Computer Science & Engineering';
+    let facultyCode = null;
+    let facultyId = null;
+
+    if (user.role === 'FACULTY') {
+      const [facRows] = await query('SELECT * FROM faculty WHERE user_id = ? OR email = ? LIMIT 1', [user.id, user.email]);
+      if (facRows && facRows.length > 0) {
+        department = facRows[0].department || department;
+        facultyCode = facRows[0].faculty_code || null;
+        facultyId = facRows[0].id;
+      }
+    }
+
     return {
       token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        department,
+        facultyCode,
+        facultyId
       }
     };
   }

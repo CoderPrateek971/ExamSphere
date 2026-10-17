@@ -790,82 +790,6 @@ export default function FacultyDutyWorkloadView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      
-      {/* Top Banner */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(6, 182, 212, 0.08))',
-        border: '1px solid var(--border-accent)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '1.5rem 2rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
-            <span style={{ 
-              background: 'linear-gradient(135deg, #6366f1, #06b6d4)', 
-              padding: '0.2rem 0.6rem', 
-              borderRadius: '6px', 
-              fontSize: '0.75rem', 
-              fontWeight: 800,
-              color: '#fff'
-            }}>
-              MODULE 5
-            </span>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fff' }}>
-              Faculty Duty & Workload Management
-            </h1>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', maxWidth: '750px' }}>
-            Assign teachers to examination rooms & time slots, check who is free or busy, and balance workloads equally.
-          </p>
-        </div>
-
-        {/* Global Action Buttons */}
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button 
-            className="btn btn-secondary" 
-            onClick={loadData} 
-            disabled={loading}
-            title="Refresh Data"
-          >
-            <RefreshCw size={15} className={loading ? 'spin' : ''} />
-            <span>Refresh</span>
-          </button>
-
-          <button 
-            className="btn btn-secondary" 
-            onClick={handleResetDuties}
-            title="Reset duties to 0 to test from scratch"
-            style={{ color: '#f87171' }}
-          >
-            <RotateCcw size={15} />
-            <span>Reset to 0</span>
-          </button>
-
-          <button 
-            className="btn btn-primary" 
-            onClick={() => setIsAssignChoiceModalOpen(true)}
-            title="Choose between Manual Assignment or Automatic Assignment"
-          >
-            <Plus size={16} />
-            <span>+ Assign Duties</span>
-          </button>
-
-          <button 
-            className="btn btn-primary" 
-            onClick={handleAutoAllocate}
-            disabled={actionLoading}
-          >
-            <Scale size={16} />
-            <span>{actionLoading ? 'Balancing...' : 'Auto-Allocate Duties'}</span>
-          </button>
-        </div>
-      </div>
 
       {/* Summary KPI Cards */}
       <div style={{
@@ -980,6 +904,28 @@ export default function FacultyDutyWorkloadView() {
                   onChange={(e) => setRosterSearch(e.target.value)}
                 />
               </div>
+
+              {/* Quick Actions: Refresh & Reset */}
+              <button 
+                className="btn btn-secondary" 
+                onClick={loadData} 
+                disabled={loading}
+                title="Refresh Data"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
+              >
+                <RefreshCw size={13} className={loading ? 'spin' : ''} />
+                <span>Refresh</span>
+              </button>
+
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleResetDuties}
+                title="Reset duties to 0 to test from scratch"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem', color: '#f87171' }}
+              >
+                <RotateCcw size={13} />
+                <span>Reset to 0</span>
+              </button>
 
               {/* Main Assign Button: Asks whether user wants Manual or Automatic */}
               <button 
