@@ -157,6 +157,23 @@ class AuthService {
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
+    let department = user.role === 'ADMIN' ? 'Examination Cell' : 'Computer Science & Engineering';
+    let facultyCode = facultyProfile ? facultyProfile.faculty_code : null;
+    let facultyId = facultyProfile ? facultyProfile.id : null;
+
+    if (user.role === 'FACULTY') {
+      if (facultyProfile && facultyProfile.department) {
+        department = facultyProfile.department;
+      } else {
+        const [facRows] = await query('SELECT * FROM faculty WHERE user_id = ? OR email = ? LIMIT 1', [user.id, user.email]);
+        if (facRows && facRows.length > 0) {
+          department = facRows[0].department || department;
+          facultyCode = facRows[0].faculty_code || facultyCode;
+          facultyId = facRows[0].id || facultyId;
+        }
+      }
+    }
+
     return {
       token,
       user: {
@@ -164,10 +181,12 @@ class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
-        faculty_id: facultyProfile ? facultyProfile.id : null,
-        faculty_code: facultyProfile ? facultyProfile.faculty_code : null,
-        department: facultyProfile ? facultyProfile.department : null,
-        designation: facultyProfile ? facultyProfile.designation : null
+        department,
+        designation: facultyProfile ? facultyProfile.designation : null,
+        facultyId,
+        faculty_id: facultyId,
+        facultyCode,
+        faculty_code: facultyCode
       }
     };
   }
