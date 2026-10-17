@@ -1,6 +1,14 @@
-```javascript
 // Base API Client for ExamSphere
-const API_BASE = 'http://localhost:5000/api';
+export const BACKEND_URL = 'http://localhost:5000';
+const API_BASE = `${BACKEND_URL}/api`;
+
+export const getFullPhotoUrl = (photoPath) => {
+  if (!photoPath) return null;
+  if (photoPath.startsWith('http://') || photoPath.startsWith('https://') || photoPath.startsWith('data:')) {
+    return photoPath;
+  }
+  return `${BACKEND_URL}${photoPath.startsWith('/') ? '' : '/'}${photoPath}`;
+};
 
 export const api = {
   // Authentication & User Session
@@ -333,5 +341,65 @@ export const api = {
       method: 'DELETE',
     });
   },
+
+  // Module 7: Invigilator Portal & Attendance
+  getInvigilatorDuties(facultyId = null) {
+    const query = facultyId ? `?faculty_id=${encodeURIComponent(facultyId)}` : '';
+    return this.request(`/invigilator/duties${query}`);
+  },
+
+  confirmDuty(dutyId, status = 'CONFIRMED') {
+    return this.request(`/invigilator/duties/${dutyId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  getDutyStudents(dutyId) {
+    return this.request(`/invigilator/duties/${dutyId}/students`);
+  },
+
+  markAttendance(payload) {
+    return this.request('/invigilator/attendance/mark', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  bulkMarkAttendance(payload) {
+    return this.request('/invigilator/attendance/bulk', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  verifyFace(payload) {
+    return this.request('/invigilator/attendance/verify-face', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  resetDutyAttendance(dutyId) {
+    return this.request(`/invigilator/attendance/${dutyId}/reset`, {
+      method: 'POST',
+    });
+  },
+
+  seedDuties() {
+    return this.request('/invigilator/seed-duties', {
+      method: 'POST',
+    });
+  },
+
+  getAttendanceOverview(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.examId) searchParams.append('examId', params.examId);
+    if (params.roomId) searchParams.append('roomId', params.roomId);
+    if (params.status) searchParams.append('status', params.status);
+    if (params.method) searchParams.append('method', params.method);
+    if (params.search) searchParams.append('search', params.search);
+    const qs = searchParams.toString();
+    return this.request(`/invigilator/attendance/overview${qs ? `?${qs}` : ''}`);
+  },
 };
-```

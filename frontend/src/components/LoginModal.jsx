@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, AlertCircle, X, UserCheck, ShieldCheck, User, KeyRound, ShieldAlert } from 'lucide-react';
+import { 
+  Lock, 
+  Mail, 
+  AlertCircle, 
+  X, 
+  Sparkles, 
+  ShieldCheck, 
+  UserCheck, 
+  Eye, 
+  KeyRound, 
+  ShieldAlert, 
+  User 
+} from 'lucide-react';
 import { api } from '../api';
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole, currentRole }) {
@@ -38,6 +50,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
     }
   };
 
+  const handleQuickFill = (fillEmail, fillPass = 'faculty123', role = 'FACULTY') => {
+    if (isSwitchMode && role !== targetRole) return;
+    setSelectedRole(role);
+    setEmail(fillEmail);
+    setPassword(fillPass);
+    setError(null);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -63,7 +83,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
 
       // Strict Role Validation when in Switch Mode
       if (isSwitchMode && authenticatedUser.role !== targetRole) {
-        setError(`Access Denied: The entered account has role '${authenticatedUser.role}', but '${targetRole}' credentials are required to complete this switch.`);
+        setError(`Access Denied: Authenticated account has role '${authenticatedUser.role}', but '${targetRole}' credentials are required to complete this switch.`);
         setLoading(false);
         return;
       }
@@ -73,7 +93,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
       onLoginSuccess(authenticatedUser);
       onClose();
     } catch (err) {
-      // STRICT SECURITY: Wrong credentials must block the switch!
       console.warn('Authentication failed:', err.message);
       setError(err.message || 'Invalid email or password. Please verify your credentials and try again.');
     } finally {
@@ -81,30 +100,32 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
     }
   };
 
+  const activeRole = targetRole || selectedRole;
+
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '480px' }}>
-        <div className="modal-header">
+      <div className="modal-content" style={{ maxWidth: '480px', padding: '1.75rem' }}>
+        <div className="modal-header" style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{
               width: '36px',
               height: '36px',
               borderRadius: '8px',
-              background: (targetRole || selectedRole) === 'ADMIN' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(56, 189, 248, 0.18)',
-              border: `1px solid ${(targetRole || selectedRole) === 'ADMIN' ? 'rgba(99, 102, 241, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`,
+              background: activeRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(6, 182, 212, 0.18)',
+              border: `1px solid ${activeRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.4)' : 'rgba(6, 182, 212, 0.4)'}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Lock size={18} color={(targetRole || selectedRole) === 'ADMIN' ? '#818cf8' : '#38bdf8'} />
+              <Lock size={18} color={activeRole === 'ADMIN' ? '#818cf8' : '#22d3ee'} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.2rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
                 {isSwitchMode 
                   ? `Security Check: Switch to ${targetRole === 'ADMIN' ? 'Administrator' : 'Faculty'}`
                   : 'Sign In to ExamSphere'}
               </h3>
-              <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem', marginBottom: 0 }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem', marginBottom: 0 }}>
                 {isSwitchMode
                   ? `Enter ${targetRole === 'ADMIN' ? 'Administrator' : 'Faculty'} login credentials to proceed`
                   : 'Select your university role and authenticate to access modules'}
@@ -114,7 +135,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
           <button className="close-btn" onClick={onClose} title="Cancel and close"><X size={20} /></button>
         </div>
 
-        {/* Security Alert Badge */}
+        {/* Security Alert Badge for Switch Mode */}
         {isSwitchMode && (
           <div style={{
             background: 'rgba(234, 179, 8, 0.1)',
@@ -136,16 +157,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
           </div>
         )}
 
-        {/* Role Selector Tabs */}
+        {/* Role Selector Tabs (Interactive in standard mode, locked badge in switch mode) */}
         {!isSwitchMode ? (
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '0.5rem',
-            background: 'rgba(255, 255, 255, 0.03)',
+            background: 'rgba(0, 0, 0, 0.35)',
             padding: '0.35rem',
-            borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-subtle)',
             marginBottom: '1.25rem'
           }}>
             <button
@@ -153,13 +174,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
               onClick={() => handleRoleTabChange('ADMIN')}
               style={{
                 padding: '0.65rem 0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.84rem',
+                borderRadius: 'var(--radius-sm)',
+                border: selectedRole === 'ADMIN' ? '1px solid var(--primary)' : '1px solid transparent',
+                background: selectedRole === 'ADMIN' ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.15))' : 'transparent',
+                color: selectedRole === 'ADMIN' ? '#fff' : 'var(--text-muted)',
+                fontSize: '0.82rem',
                 fontWeight: 700,
                 cursor: 'pointer',
-                border: selectedRole === 'ADMIN' ? '1px solid #6366f1' : '1px solid transparent',
-                background: selectedRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
-                color: selectedRole === 'ADMIN' ? '#fff' : 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -167,8 +188,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                 transition: 'all 0.15s ease'
               }}
             >
-              <ShieldCheck size={16} color={selectedRole === 'ADMIN' ? '#818cf8' : 'var(--text-muted)'} />
-              <span>Administrator</span>
+              <ShieldCheck size={16} color={selectedRole === 'ADMIN' ? 'var(--primary)' : 'var(--text-muted)'} />
+              <span>Admin Portal</span>
             </button>
 
             <button
@@ -176,13 +197,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
               onClick={() => handleRoleTabChange('FACULTY')}
               style={{
                 padding: '0.65rem 0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.84rem',
+                borderRadius: 'var(--radius-sm)',
+                border: selectedRole === 'FACULTY' ? '1px solid var(--accent-cyan)' : '1px solid transparent',
+                background: selectedRole === 'FACULTY' ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(59, 130, 246, 0.15))' : 'transparent',
+                color: selectedRole === 'FACULTY' ? '#fff' : 'var(--text-muted)',
+                fontSize: '0.82rem',
                 fontWeight: 700,
                 cursor: 'pointer',
-                border: selectedRole === 'FACULTY' ? '1px solid #38bdf8' : '1px solid transparent',
-                background: selectedRole === 'FACULTY' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-                color: selectedRole === 'FACULTY' ? '#fff' : 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -190,14 +211,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                 transition: 'all 0.15s ease'
               }}
             >
-              <User size={16} color={selectedRole === 'FACULTY' ? '#38bdf8' : 'var(--text-muted)'} />
-              <span>Faculty / Invigilator</span>
+              <Eye size={16} color={selectedRole === 'FACULTY' ? 'var(--accent-cyan)' : 'var(--text-muted)'} />
+              <span>Invigilator / Faculty</span>
             </button>
           </div>
         ) : (
           <div style={{
-            background: targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)',
-            border: `1px solid ${targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(56, 189, 248, 0.3)'}`,
+            background: targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(6, 182, 212, 0.12)',
+            border: `1px solid ${targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(6, 182, 212, 0.3)'}`,
             borderRadius: '8px',
             padding: '0.65rem 0.85rem',
             fontSize: '0.8rem',
@@ -211,7 +232,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
               {targetRole === 'ADMIN' ? (
                 <ShieldCheck size={16} color="#818cf8" />
               ) : (
-                <User size={16} color="#38bdf8" />
+                <Eye size={16} color="#22d3ee" />
               )}
               <span>Switching to: <strong>{targetRole === 'ADMIN' ? 'Administrator' : 'Faculty Invigilator'}</strong></span>
             </div>
@@ -220,12 +241,36 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
               fontWeight: 700,
               padding: '0.2rem 0.5rem',
               borderRadius: '6px',
-              background: targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(56, 189, 248, 0.25)',
-              color: targetRole === 'ADMIN' ? '#a5b4fc' : '#7dd3fc',
-              border: `1px solid ${targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`
+              background: targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(6, 182, 212, 0.25)',
+              color: targetRole === 'ADMIN' ? '#a5b4fc' : '#67e8f9',
+              border: `1px solid ${targetRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.4)' : 'rgba(6, 182, 212, 0.4)'}`
             }}>
               REQUIRED
             </span>
+          </div>
+        )}
+
+        {/* Portal Role Description Banner */}
+        {!isSwitchMode && (
+          <div style={{
+            padding: '0.65rem 0.85rem',
+            borderRadius: 'var(--radius-sm)',
+            background: selectedRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(6, 182, 212, 0.08)',
+            border: `1px solid ${selectedRole === 'ADMIN' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`,
+            fontSize: '0.76rem',
+            color: selectedRole === 'ADMIN' ? '#a5b4fc' : '#67e8f9',
+            marginBottom: '1.25rem',
+            lineHeight: 1.4
+          }}>
+            {selectedRole === 'ADMIN' ? (
+              <span>
+                🛡️ <strong>Admin Access:</strong> Master Data, Anti-Cheating Seating Allocation, Duty Balancing & Incident Logs.
+              </span>
+            ) : (
+              <span>
+                👁️ <strong>Invigilator Access:</strong> View Assigned Duties, Verify Student Identities & Record Live Attendance (Module 7).
+              </span>
+            )}
           </div>
         )}
 
@@ -251,34 +296,36 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
         {/* Authentication Form */}
         <form onSubmit={handleLogin}>
           <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <Mail size={14} color="#94a3b8" />
-              {(targetRole || selectedRole) === 'ADMIN' ? 'Administrator Email' : 'Faculty University Email'}
+              {activeRole === 'ADMIN' ? 'Administrator Email' : 'Faculty / Invigilator Email'}
             </label>
             <input
               type="email"
               className="form-control"
-              placeholder={(targetRole || selectedRole) === 'ADMIN' ? 'admin@examsphere.edu' : 'faculty@examsphere.edu'}
+              placeholder={activeRole === 'ADMIN' ? 'admin@examsphere.edu' : 'faculty@examsphere.edu'}
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoFocus={!isSwitchMode}
+              style={{ width: '100%', padding: '0.6rem 0.85rem' }}
             />
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <KeyRound size={14} color="#94a3b8" />
               Password
             </label>
             <input
               type="password"
               className="form-control"
-              placeholder={`Enter ${(targetRole || selectedRole) === 'ADMIN' ? 'Admin' : 'Faculty'} password`}
+              placeholder={`Enter ${activeRole === 'ADMIN' ? 'Admin' : 'Faculty'} password`}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoFocus={isSwitchMode}
+              style={{ width: '100%', padding: '0.6rem 0.85rem' }}
             />
           </div>
 
@@ -296,37 +343,116 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ flex: 2, justifyContent: 'center', padding: '0.7rem' }}
+              style={{
+                flex: 2,
+                justifyContent: 'center',
+                padding: '0.75rem',
+                fontWeight: 700,
+                background: activeRole === 'ADMIN' ? 'var(--primary)' : 'var(--accent-cyan)',
+                borderColor: activeRole === 'ADMIN' ? 'var(--primary)' : 'var(--accent-cyan)'
+              }}
               disabled={loading}
             >
-              {loading ? (
-                'Verifying Credentials...'
-              ) : isSwitchMode ? (
-                `Verify & Switch to ${targetRole === 'ADMIN' ? 'Administrator' : 'Faculty'}`
-              ) : (
-                `Sign In as ${selectedRole === 'ADMIN' ? 'Administrator' : 'Faculty'}`
-              )}
+              {loading
+                ? 'Verifying Credentials...'
+                : isSwitchMode
+                ? `Verify & Switch to ${targetRole === 'ADMIN' ? 'Admin Portal' : 'Invigilator Portal'}`
+                : `Sign In to ${selectedRole === 'ADMIN' ? 'Admin Portal' : 'Invigilator Portal'}`}
             </button>
           </div>
         </form>
 
-        {/* Security Credentials Reference (Clean helper, strictly requiring password entry) */}
-        <div style={{
-          marginTop: '1.2rem',
-          paddingTop: '0.9rem',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          fontSize: '0.73rem',
-          color: '#94a3b8',
-          lineHeight: '1.45',
-          textAlign: 'center'
-        }}>
-          <div><strong>University Demo Credentials:</strong></div>
-          <div style={{ marginTop: '0.2rem' }}>
-            Admin: <code style={{ color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>admin@examsphere.edu</code> / <code style={{ color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>admin123</code>
+        {/* Quick Demo Accounts Selection */}
+        <div style={{ marginTop: '1.35rem', paddingTop: '1.15rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-dim)', fontWeight: 700, marginBottom: '0.5rem', textAlign: 'center' }}>
+            Quick Demo Accounts
           </div>
-          <div style={{ marginTop: '0.2rem' }}>
-            Faculty: <code style={{ color: '#7dd3fc', background: 'rgba(56,189,248,0.15)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>faculty@examsphere.edu</code> / <code style={{ color: '#7dd3fc', background: 'rgba(56,189,248,0.15)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>faculty123</code>
-          </div>
+
+          {activeRole === 'ADMIN' ? (
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('admin@examsphere.edu', 'admin123', 'ADMIN')}
+                style={{
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px dashed rgba(99, 102, 241, 0.4)',
+                  color: '#a5b4fc',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <Sparkles size={13} />
+                <span>Fill Admin: admin@examsphere.edu / admin123</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('rajesh.sharma@bmu.edu.in', 'faculty123', 'FACULTY')}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px dashed rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>👨‍🏫 Dr. Rajesh Sharma (CSE Prof)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.8 }}>rajesh.sharma@bmu.edu.in</code>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('priya.nair@bmu.edu.in', 'faculty123', 'FACULTY')}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px dashed rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>👩‍🏫 Dr. Priya Nair (ECE Assoc Prof)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.8 }}>priya.nair@bmu.edu.in</code>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('invigilator@examsphere.edu', 'faculty123', 'FACULTY')}
+                style={{
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px dashed rgba(16, 185, 129, 0.35)',
+                  color: '#6ee7b7',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>👁️ General Demo Invigilator</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.8 }}>invigilator@examsphere.edu</code>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
