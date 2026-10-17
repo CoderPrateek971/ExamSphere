@@ -16,8 +16,8 @@ import { api } from '../api';
 
 export default function PortalLoginView({ onLoginSuccess }) {
   const [selectedPortal, setSelectedPortal] = useState('TEACHER'); // 'TEACHER' or 'ADMIN'
-  const [email, setEmail] = useState('rajesh.sharma@bmu.edu.in');
-  const [password, setPassword] = useState('faculty123');
+  const [email, setEmail] = useState('professor@examsphere.edu');
+  const [password, setPassword] = useState('professor123');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,8 +28,8 @@ export default function PortalLoginView({ onLoginSuccess }) {
       setEmail('admin@examsphere.edu');
       setPassword('admin123');
     } else {
-      setEmail('rajesh.sharma@bmu.edu.in');
-      setPassword('faculty123');
+      setEmail('professor@examsphere.edu');
+      setPassword('professor123');
     }
   };
 
@@ -356,6 +356,28 @@ export default function PortalLoginView({ onLoginSuccess }) {
 
           {selectedPortal === 'TEACHER' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <button
+                type="button"
+                onClick={() => fillTeacher('professor@examsphere.edu', 'professor123')}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.14)',
+                  border: '1px solid rgba(6, 182, 212, 0.5)',
+                  color: '#67e8f9',
+                  padding: '0.55rem 0.85rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 0 12px rgba(6, 182, 212, 0.2)'
+                }}
+              >
+                <span>⭐ 👨‍🏫 <strong>Prof. Vikram Malhotra</strong> (Chief Invigilator, CSE)</span>
+                <span style={{ fontSize: '0.72rem', opacity: 0.95, fontFamily: 'monospace' }}>professor@examsphere.edu / professor123</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => fillTeacher('rajesh.sharma@bmu.edu.in', 'faculty123')}

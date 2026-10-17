@@ -62,7 +62,7 @@ async function getDutyStudents(req, res) {
 
 async function markAttendance(req, res) {
   try {
-    const { exam_id, student_id, room_id, status, verification_method, face_confidence, photo_path } = req.body;
+    const { exam_id, student_id, room_id, status, verification_method, face_confidence, photo_path, photo_base64 } = req.body;
     const result = await invigilatorService.markAttendance({
       exam_id,
       student_id,
@@ -71,6 +71,7 @@ async function markAttendance(req, res) {
       verification_method: verification_method || 'MANUAL',
       face_confidence,
       photo_path,
+      photo_base64,
       userId: req.user.id
     });
     return res.status(200).json({

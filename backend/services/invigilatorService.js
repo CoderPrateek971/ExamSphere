@@ -83,10 +83,10 @@ class InvigilatorService {
     await this.seedDemoDutiesIfEmpty();
 
     let sql = `
-      SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status AS duty_status, id.created_at,
+      SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status AS duty_status, id.status, id.created_at,
              e.exam_name, e.exam_type, e.exam_date, e.start_time, e.end_time, e.duration_minutes,
-             c.id AS course_id, c.course_code, c.course_name, c.department AS course_department, c.semester,
-             r.room_number, r.building, r.floor, r.capacity AS room_capacity, r.rows_count, r.cols_count,
+             c.id AS course_id, c.course_code, c.course_name, c.department AS course_department, c.department AS course_dept, c.semester,
+             r.room_number, r.building, r.floor, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count,
              f.faculty_code, f.name AS faculty_name, f.email AS faculty_email, f.department AS faculty_department, f.designation,
              (SELECT COUNT(*) FROM seat_allocations sa WHERE sa.exam_id = id.exam_id AND sa.room_id = id.room_id) AS allocated_students_count,
              (SELECT COUNT(*) FROM attendance att WHERE att.exam_id = id.exam_id AND att.room_id = id.room_id AND att.status = 'PRESENT') AS present_count,
@@ -159,10 +159,10 @@ class InvigilatorService {
    */
   async getDutyStudents(dutyId) {
     const [duties] = await query(`
-      SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status AS duty_status,
+      SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status, id.status AS duty_status,
              e.exam_name, e.exam_date, e.start_time, e.end_time,
-             c.course_code, c.course_name, c.department AS course_dept,
-             r.room_number, r.building, r.floor, r.capacity, r.rows_count, r.cols_count
+             c.course_code, c.course_name, c.department AS course_dept, c.department AS course_department,
+             r.room_number, r.building, r.floor, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count
       FROM invigilation_duties id
       JOIN exams e ON id.exam_id = e.id
       JOIN courses c ON e.course_id = c.id
@@ -195,18 +195,17 @@ class InvigilatorService {
     // 2. If no seat allocations exist in this room yet, fallback to enrolled students for this course
     if (students.length === 0) {
       const [fallbackStudents] = await query(`
-        SELECT s.id AS student_id, s.enrollment_no, s.name AS student_name, s.email AS student_email,
+        SELECT DISTINCT s.id AS student_id, s.enrollment_no, s.name AS student_name, s.email AS student_email,
                s.department AS student_department, s.semester AS student_semester, s.program,
                att.id AS attendance_id, att.status AS attendance_status, att.verification_method,
                att.face_confidence, att.marked_at, att.photo_path
         FROM students s
-        LEFT JOIN student_courses sc ON s.id = sc.student_id
-        LEFT JOIN exams e ON e.id = ?
+        JOIN student_courses sc ON s.id = sc.student_id
+        JOIN exams e ON e.id = ? AND sc.course_id = e.course_id
         LEFT JOIN attendance att ON att.exam_id = e.id AND att.student_id = s.id
-        WHERE (sc.course_id = e.course_id OR (s.department = ? AND s.semester = 4))
         ORDER BY s.enrollment_no ASC
         LIMIT ?
-      `, [duty.exam_id, duty.course_dept, duty.capacity || 30]);
+      `, [duty.exam_id, duty.capacity || 30]);
 
       students = fallbackStudents.map((st, idx) => ({
         ...st,
@@ -223,7 +222,7 @@ class InvigilatorService {
     const absentCount = students.filter(s => s.attendance_status === 'ABSENT').length;
     const flaggedCount = students.filter(s => s.attendance_status === 'FLAGGED').length;
     const unverifiedCount = students.filter(s => !s.attendance_status).length;
-    const faceVerifiedCount = students.filter(s => s.verification_method === 'FACE_MATCH').length;
+    const faceVerifiedCount = students.filter(s => !!s.photo_path || s.verification_method === 'FACE_MATCH').length;
 
     return {
       duty,
@@ -243,7 +242,7 @@ class InvigilatorService {
   /**
    * Mark individual student attendance (Manual or Face-Match)
    */
-  async markAttendance({ exam_id, student_id, room_id, status = 'PRESENT', verification_method = 'MANUAL', face_confidence = null, photo_path = null, userId = null }) {
+  async markAttendance({ exam_id, student_id, room_id, status = 'PRESENT', verification_method = 'MANUAL', face_confidence = null, photo_path = null, photo_base64 = null, userId = null }) {
     if (!exam_id || !student_id || !room_id) {
       const err = new Error('exam_id, student_id, and room_id are required.');
       err.statusCode = 400;
@@ -257,6 +256,12 @@ class InvigilatorService {
       throw err;
     }
 
+    let finalPhotoPath = photo_path;
+    const base64Candidate = photo_base64 || (photo_path && typeof photo_path === 'string' && photo_path.startsWith('data:image/') ? photo_path : null);
+    if (base64Candidate) {
+      finalPhotoPath = this.saveBiometricImage(exam_id, student_id, null, base64Candidate);
+    }
+
     await query(
       `INSERT INTO attendance (exam_id, student_id, room_id, status, verification_method, face_confidence, photo_path, marked_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -264,9 +269,9 @@ class InvigilatorService {
          status = VALUES(status),
          verification_method = VALUES(verification_method),
          face_confidence = VALUES(face_confidence),
-         photo_path = VALUES(photo_path),
+         photo_path = IF(VALUES(status) = 'ABSENT', NULL, COALESCE(VALUES(photo_path), photo_path)),
          marked_at = CURRENT_TIMESTAMP`,
-      [exam_id, student_id, room_id, status, verification_method, face_confidence, photo_path]
+      [exam_id, student_id, room_id, status, verification_method, face_confidence, finalPhotoPath]
     );
 
     // Audit Log
@@ -405,82 +410,27 @@ class InvigilatorService {
   }
 
   /**
-   * Helper: Save biometric snapshot or generate high-fidelity biometric SVG file
+   * Helper: Save real photograph clicked by invigilator to disk (JPG/PNG only, NO random/synthetic images)
    */
   saveBiometricImage(examId, studentId, studentName, capturedImageBase64) {
+    if (!capturedImageBase64 || typeof capturedImageBase64 !== 'string' || !capturedImageBase64.startsWith('data:image/')) {
+      return null;
+    }
     try {
       const attendanceDir = path.join(__dirname, '..', 'uploads', 'attendance');
       if (!fs.existsSync(attendanceDir)) {
         fs.mkdirSync(attendanceDir, { recursive: true });
       }
 
-      if (capturedImageBase64 && capturedImageBase64.startsWith('data:image/')) {
-        const extMatch = capturedImageBase64.match(/^data:image\/([a-zA-Z0-9]+);base64,/);
-        const ext = extMatch && extMatch[1] === 'png' ? 'png' : 'jpg';
-        const cleanBase64 = capturedImageBase64.replace(/^data:image\/[a-zA-Z0-9]+;base64,/, '');
-        const filename = `att_exam${examId}_st${studentId}_${Date.now()}.${ext}`;
-        const filePath = path.join(attendanceDir, filename);
-        fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
-        return `/uploads/attendance/${filename}`;
-      }
-
-      // If simulated or no camera image, generate biometric SVG card
-      const filename = `att_sim_exam${examId}_st${studentId}_${Date.now()}.svg`;
+      const extMatch = capturedImageBase64.match(/^data:image\/([a-zA-Z0-9]+);base64,/);
+      const ext = extMatch && extMatch[1] === 'png' ? 'png' : 'jpg';
+      const cleanBase64 = capturedImageBase64.replace(/^data:image\/[a-zA-Z0-9]+;base64,/, '');
+      const filename = `att_exam${examId}_st${studentId}_${Date.now()}.${ext}`;
       const filePath = path.join(attendanceDir, filename);
-      const safeName = (studentName || 'Student Candidate').replace(/[^a-zA-Z0-9\s]/g, '');
-      const initials = safeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
-
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#080f24"/>
-      <stop offset="50%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#020617"/>
-    </linearGradient>
-    <radialGradient id="meshGlow" cx="50%" cy="45%" r="50%">
-      <stop offset="0%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#090d16"/>
-    </radialGradient>
-  </defs>
-  <rect width="400" height="400" fill="url(#bg)"/>
-  <g stroke="rgba(6,182,212,0.15)" stroke-width="1">
-    <line x1="0" y1="80" x2="400" y2="80"/>
-    <line x1="0" y1="160" x2="400" y2="160"/>
-    <line x1="0" y1="240" x2="400" y2="240"/>
-    <line x1="0" y1="320" x2="400" y2="320"/>
-    <line x1="80" y1="0" x2="80" y2="400"/>
-    <line x1="160" y1="0" x2="160" y2="400"/>
-    <line x1="240" y1="0" x2="240" y2="400"/>
-    <line x1="320" y1="0" x2="320" y2="400"/>
-  </g>
-  <circle cx="200" cy="175" r="115" fill="none" stroke="rgba(6,182,212,0.3)" stroke-width="1.5" stroke-dasharray="6,4"/>
-  <circle cx="200" cy="175" r="88" fill="url(#meshGlow)" stroke="#06b6d4" stroke-width="2.5"/>
-  <circle cx="200" cy="150" r="45" fill="#334155" stroke="#38bdf8" stroke-width="2"/>
-  <path d="M136,252 C136,206 264,206 264,252" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
-  <text x="200" y="160" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="bold" fill="#f8fafc" text-anchor="middle">${initials}</text>
-  <g fill="#06b6d4">
-    <circle cx="180" cy="142" r="4"/>
-    <circle cx="220" cy="142" r="4"/>
-    <circle cx="200" cy="162" r="3.5"/>
-    <circle cx="188" cy="178" r="3"/>
-    <circle cx="212" cy="178" r="3"/>
-  </g>
-  <path d="M180,142 L200,162 L220,142" stroke="rgba(6,182,212,0.7)" stroke-width="1.5" fill="none"/>
-  <path d="M188,178 L200,166 L212,178" stroke="rgba(6,182,212,0.7)" stroke-width="1.5" fill="none"/>
-  <path d="M60,90 L60,60 L90,60" stroke="#06b6d4" stroke-width="3" fill="none"/>
-  <path d="M340,90 L340,60 L310,60" stroke="#06b6d4" stroke-width="3" fill="none"/>
-  <path d="M60,260 L60,290 L90,290" stroke="#06b6d4" stroke-width="3" fill="none"/>
-  <path d="M340,260 L340,290 L310,290" stroke="#06b6d4" stroke-width="3" fill="none"/>
-  <rect x="25" y="325" width="350" height="52" rx="10" fill="rgba(15,23,42,0.92)" stroke="rgba(6,182,212,0.5)" stroke-width="1.2"/>
-  <circle cx="48" cy="351" r="7" fill="#10b981"/>
-  <text x="65" y="346" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="bold" fill="#f8fafc">${safeName}</text>
-  <text x="65" y="364" font-family="monospace" font-size="11" fill="#38bdf8">BIOMETRIC FACE MATCH CONFIRMED</text>
-</svg>`;
-
-      fs.writeFileSync(filePath, svg, 'utf8');
+      fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
       return `/uploads/attendance/${filename}`;
     } catch (err) {
-      console.error('Error saving biometric image:', err);
+      console.error('Error saving real captured photo:', err);
       return null;
     }
   }
@@ -582,7 +532,7 @@ class InvigilatorService {
     const absentCount = records.filter(r => r.attendance_status === 'ABSENT').length;
     const flaggedCount = records.filter(r => r.attendance_status === 'FLAGGED').length;
     const unverifiedCount = records.filter(r => r.attendance_status === 'UNVERIFIED').length;
-    const faceVerifiedCount = records.filter(r => r.verification_method === 'FACE_MATCH').length;
+    const faceVerifiedCount = records.filter(r => !!r.photo_path || r.verification_method === 'FACE_MATCH').length;
     const attendanceRate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
 
     return {

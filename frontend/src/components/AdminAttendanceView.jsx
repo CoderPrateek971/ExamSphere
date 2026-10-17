@@ -417,7 +417,7 @@ export default function AdminAttendanceView({ user }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Biometric Face-Verified
+                Photo-Verified Candidates
               </span>
               <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.2rem' }}>
                 {stats.faceVerifiedCount}
@@ -439,7 +439,7 @@ export default function AdminAttendanceView({ user }) {
             </div>
           </div>
           <div style={{ marginTop: '0.5rem', fontSize: '0.74rem', color: '#67e8f9' }}>
-            Verified via Camera AI Face Matching
+            Live photos clicked by invigilator
           </div>
         </div>
 
@@ -861,8 +861,7 @@ export default function AdminAttendanceView({ user }) {
                   <th style={{ padding: '0.85rem 1rem' }}>Exam & Course</th>
                   <th style={{ padding: '0.85rem 1rem' }}>Hall & Seat</th>
                   <th style={{ padding: '0.85rem 1rem' }}>Status</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Verification Telemetry</th>
-                  <th style={{ padding: '0.85rem 1.2rem', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '0.85rem 1.2rem' }}>Verification Telemetry</th>
                 </tr>
               </thead>
               <tbody>
@@ -1148,7 +1147,7 @@ export default function AdminAttendanceView({ user }) {
 
                       {/* Verification Telemetry */}
                       <td style={{ padding: '0.75rem 1rem' }}>
-                        {r.verification_method === 'FACE_MATCH' ? (
+                        {r.photo_path ? (
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                               <span
@@ -1165,7 +1164,34 @@ export default function AdminAttendanceView({ user }) {
                                 }}
                               >
                                 <Camera size={11} />
-                                AI FACE MATCH
+                                PHOTO VERIFIED
+                              </span>
+                            </div>
+                            {r.marked_at && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                                {new Date(r.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
+                                {new Date(r.marked_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </div>
+                            )}
+                          </div>
+                        ) : r.verification_method === 'FACE_MATCH' ? (
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  color: 'var(--accent-cyan)',
+                                  background: 'rgba(6, 182, 212, 0.12)',
+                                  padding: '0.15rem 0.45rem',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                <Camera size={11} />
+                                FACE MATCH
                               </span>
                               {r.face_confidence && (
                                 <span
@@ -1216,66 +1242,6 @@ export default function AdminAttendanceView({ user }) {
                             Pending room invigilator
                           </span>
                         )}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '0.75rem 1.2rem', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
-                          {photoUrl && (
-                            <button
-                              onClick={() => setInspectedRecord(r)}
-                              className="btn btn-secondary"
-                              style={{
-                                padding: '0.35rem 0.65rem',
-                                fontSize: '0.75rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.3rem'
-                              }}
-                              title="Inspect biometric image"
-                            >
-                              <Eye size={13} color="var(--accent-cyan)" />
-                              <span>View Photo</span>
-                            </button>
-                          )}
-
-                          {/* Quick Admin Overrides */}
-                          {!isPresent && (
-                            <button
-                              onClick={() => handleUpdateStatus(r, 'PRESENT')}
-                              disabled={updatingId === r.student_id}
-                              className="btn"
-                              style={{
-                                padding: '0.35rem 0.55rem',
-                                fontSize: '0.74rem',
-                                background: 'rgba(16, 185, 129, 0.15)',
-                                color: '#34d399',
-                                border: '1px solid rgba(16, 185, 129, 0.3)'
-                              }}
-                              title="Mark Present (Admin Override)"
-                            >
-                              Mark Present
-                            </button>
-                          )}
-
-                          {!isAbsent && (
-                            <button
-                              onClick={() => handleUpdateStatus(r, 'ABSENT')}
-                              disabled={updatingId === r.student_id}
-                              className="btn"
-                              style={{
-                                padding: '0.35rem 0.55rem',
-                                fontSize: '0.74rem',
-                                background: 'rgba(244, 63, 94, 0.1)',
-                                color: '#fb7185',
-                                border: '1px solid rgba(244, 63, 94, 0.25)'
-                              }}
-                              title="Mark Absent"
-                            >
-                              Mark Absent
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   );
@@ -1412,7 +1378,8 @@ export default function AdminAttendanceView({ user }) {
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
                       <Camera size={48} color="rgba(255, 255, 255, 0.2)" style={{ marginBottom: '0.5rem' }} />
-                      <p style={{ margin: 0, fontSize: '0.85rem' }}>No Camera Snapshot Attached</p>
+                      <p style={{ margin: 0, fontSize: '0.85rem' }}>No Photo Captured (Manual Attendance)</p>
+                      <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>Invigilator signed off candidate manually without webcam capture</p>
                     </div>
                   )}
 
@@ -1478,11 +1445,32 @@ export default function AdminAttendanceView({ user }) {
                       letterSpacing: '0.05em'
                     }}
                   >
-                    AI BIOMETRIC VERIFIER v2.4
+                    {inspectedRecord.photo_path ? '📸 PHOTO CLICKED BY INVIGILATOR' : 'MANUAL ROSTER (NO PHOTO)'}
                   </div>
 
                   {/* Live Status Tag */}
-                  {inspectedRecord.verification_method === 'FACE_MATCH' && (
+                  {inspectedRecord.photo_path ? (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 14,
+                        background: 'rgba(6, 78, 59, 0.88)',
+                        backdropFilter: 'blur(4px)',
+                        border: '1px solid rgba(16, 185, 129, 0.5)',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '14px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: '#6ee7b7',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem'
+                      }}
+                    >
+                      <ShieldCheck size={14} />
+                      <span>✓ VERIFIED CANDIDATE PHOTO</span>
+                    </div>
+                  ) : inspectedRecord.verification_method === 'FACE_MATCH' ? (
                     <div
                       style={{
                         position: 'absolute',
@@ -1503,7 +1491,7 @@ export default function AdminAttendanceView({ user }) {
                       <ShieldCheck size={14} />
                       <span>MATCH VERIFIED: {inspectedRecord.face_confidence || '96.5'}%</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Photo actions */}
@@ -1628,8 +1616,10 @@ export default function AdminAttendanceView({ user }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Method:</span>
                       <span style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-main)' }}>
-                        {inspectedRecord.verification_method === 'FACE_MATCH'
-                          ? 'AI Biometric Facial Match'
+                        {inspectedRecord.photo_path
+                          ? '📸 Live Photo Clicked by Invigilator'
+                          : inspectedRecord.verification_method === 'FACE_MATCH'
+                          ? 'Facial Match Verification'
                           : inspectedRecord.verification_method === 'MANUAL'
                           ? 'Manual Roster Signing'
                           : 'Not Verified'}
@@ -1679,21 +1669,14 @@ export default function AdminAttendanceView({ user }) {
                   </div>
                 </div>
 
-                {/* Override Actions inside Modal */}
+                {/* Modal Close Action */}
                 <div style={{ display: 'flex', gap: '0.6rem', marginTop: 'auto' }}>
                   <button
-                    onClick={() => handleUpdateStatus(inspectedRecord, 'PRESENT')}
-                    className="btn btn-primary"
-                    style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem' }}
-                  >
-                    Confirm Present
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(inspectedRecord, 'ABSENT')}
+                    onClick={() => setInspectedRecord(null)}
                     className="btn btn-secondary"
-                    style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem', color: 'var(--accent-rose)' }}
+                    style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    Mark Absent
+                    <span>Close Audit View</span>
                   </button>
                 </div>
               </div>

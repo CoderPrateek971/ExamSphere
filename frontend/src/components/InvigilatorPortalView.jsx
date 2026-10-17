@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../api';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { api, getFullPhotoUrl } from '../api';
 import {
   Calendar,
   Building2,
@@ -20,7 +20,11 @@ import {
   FileText,
   Check,
   LayoutGrid,
-  List
+  List,
+  Camera,
+  RotateCcw,
+  X,
+  Upload
 } from 'lucide-react';
 
 export default function InvigilatorPortalView({ user }) {
@@ -37,6 +41,17 @@ export default function InvigilatorPortalView({ user }) {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Photo Capture Modal State (Real Webcam Snapshot)
+  const [photoModalStudent, setPhotoModalStudent] = useState(null);
+  const [capturedSnapshot, setCapturedSnapshot] = useState(null);
+  const [cameraStreamActive, setCameraStreamActive] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -46,12 +61,13 @@ export default function InvigilatorPortalView({ user }) {
   const loadDuties = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.getInvigilatorDuties(user?.facultyId || user?.id);
+      const res = await api.getInvigilatorDuties(user?.facultyId || user?.faculty_id || user?.id);
       if (res.data) {
-        setDuties(res.data.duties || []);
+        const dutyList = Array.isArray(res.data) ? res.data : (res.data.duties || []);
+        setDuties(dutyList);
         // Auto-select first duty if not selected
-        if (res.data.duties?.length > 0 && !selectedDutyId) {
-          setSelectedDutyId(res.data.duties[0].id);
+        if (dutyList.length > 0 && !selectedDutyId) {
+          setSelectedDutyId(dutyList[0].id);
         }
       }
     } catch (err) {
@@ -92,6 +108,14 @@ export default function InvigilatorPortalView({ user }) {
     try {
       await api.confirmDuty(dutyId, 'CONFIRMED');
       showToast('Duty accepted and confirmed successfully.');
+      setDuties((prev) =>
+        prev.map((d) =>
+          d.id === dutyId ? { ...d, status: 'CONFIRMED', duty_status: 'CONFIRMED' } : d
+        )
+      );
+      if (dutyDetails && dutyDetails.id === dutyId) {
+        setDutyDetails((prev) => ({ ...prev, status: 'CONFIRMED', duty_status: 'CONFIRMED' }));
+      }
       await loadDuties();
     } catch (err) {
       showToast(`Failed to confirm duty: ${err.message}`);
@@ -100,9 +124,16 @@ export default function InvigilatorPortalView({ user }) {
     }
   };
 
-  // 4. Mark Individual Student Attendance
+  // 4. Mark Individual Student Attendance (Camera for Present, Direct for Absent/Flag)
   const handleMarkAttendance = async (studentId, status) => {
     if (!dutyDetails) return;
+    if (status === 'PRESENT') {
+      const target = students.find((s) => s.student_id === studentId);
+      if (target) {
+        handleOpenPhotoCapture(target);
+        return;
+      }
+    }
     try {
       await api.markAttendance({
         exam_id: dutyDetails.exam_id,
@@ -111,7 +142,7 @@ export default function InvigilatorPortalView({ user }) {
         status,
         verification_method: 'MANUAL'
       });
-      showToast(`Student attendance marked as ${status}.`);
+      showToast(`Student marked as ${status}.`);
       await loadDutyStudents(selectedDutyId);
     } catch (err) {
       showToast(`Attendance error: ${err.message}`);
@@ -121,6 +152,10 @@ export default function InvigilatorPortalView({ user }) {
   // 5. Bulk Mark Attendance
   const handleBulkMark = async (status) => {
     if (!selectedDutyId) return;
+    if (status === 'PRESENT') {
+      showToast('Present attendance requires individual candidate camera photo.');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to mark all remaining unverified students as ${status}?`)) {
       return;
     }
@@ -158,7 +193,127 @@ export default function InvigilatorPortalView({ user }) {
     }
   };
 
-  // 7. Export Attendance CSV
+  // 7. REAL PHOTO CAPTURE: Start Webcam
+  const startCameraStream = async () => {
+    setCameraError(null);
+    setCameraStreamActive(false);
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          try {
+            await videoRef.current.play();
+          } catch (e) {
+            // handle play interruption safely
+          }
+        }
+        setCameraStreamActive(true);
+      } else {
+        throw new Error('MediaDevices not available.');
+      }
+    } catch (err) {
+      console.warn('Camera stream note:', err.message);
+      setCameraError('Live webcam feed not accessible on this device. You can snap or upload a photo using your file picker/camera.');
+      setCameraStreamActive(false);
+    }
+  };
+
+  // Stop Webcam Stream
+  const stopCameraStream = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject;
+      const tracks = stream.getTracks();
+      tracks.forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setCameraStreamActive(false);
+  };
+
+  // Open Photo Capture Dialog for student
+  const handleOpenPhotoCapture = (student) => {
+    setPhotoModalStudent(student);
+    setCapturedSnapshot(null);
+    setCameraError(null);
+    setTimeout(() => {
+      startCameraStream();
+    }, 120);
+  };
+
+  // Close Photo Capture Dialog
+  const handleClosePhotoCapture = () => {
+    stopCameraStream();
+    setPhotoModalStudent(null);
+    setCapturedSnapshot(null);
+    setCameraError(null);
+  };
+
+  // Snap Frame from Webcam
+  const handleTakeSnapshot = () => {
+    if (videoRef.current && canvasRef.current && videoRef.current.videoWidth > 0) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      setCapturedSnapshot(dataUrl);
+      stopCameraStream();
+    }
+  };
+
+  // Retake Photo
+  const handleRetakeSnapshot = () => {
+    setCapturedSnapshot(null);
+    startCameraStream();
+  };
+
+  // File Upload Fallback
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCapturedSnapshot(event.target.result);
+      stopCameraStream();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Save Real Clicked Photo to Server & Mark Student Present
+  const handleSavePhotoAndMarkPresent = async () => {
+    if (!photoModalStudent || !capturedSnapshot || !dutyDetails) return;
+    setIsSavingPhoto(true);
+    try {
+      await api.markAttendance({
+        exam_id: dutyDetails.exam_id,
+        student_id: photoModalStudent.student_id,
+        room_id: dutyDetails.room_id,
+        status: 'PRESENT',
+        verification_method: 'MANUAL',
+        photo_base64: capturedSnapshot
+      });
+      showToast(`Real photo saved for ${photoModalStudent.student_name} & marked Present!`);
+      handleClosePhotoCapture();
+      await loadDutyStudents(selectedDutyId);
+    } catch (err) {
+      showToast(`Failed to save photo: ${err.message}`);
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  };
+
+  // Clean up camera stream on unmount
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
+
+  // 8. Export Attendance CSV
   const handleExportCSV = () => {
     if (!dutyDetails || students.length === 0) {
       showToast('No students to export.');
@@ -175,6 +330,7 @@ export default function InvigilatorPortalView({ user }) {
       'Room',
       'Attendance Status',
       'Verification Method',
+      'Has Photo',
       'Marked At'
     ];
 
@@ -188,6 +344,7 @@ export default function InvigilatorPortalView({ user }) {
       `"${dutyDetails.room_number || 'N/A'}"`,
       `"${st.attendance_status || 'UNVERIFIED'}"`,
       `"${st.verification_method || 'MANUAL'}"`,
+      `"${st.photo_path ? 'YES' : 'NO'}"`,
       `"${st.marked_at ? new Date(st.marked_at).toLocaleString() : 'N/A'}"`
     ]);
 
@@ -386,7 +543,7 @@ export default function InvigilatorPortalView({ user }) {
                 Confirmed Duties
               </div>
               <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#34d399', marginTop: '0.2rem' }}>
-                {duties.filter((d) => d.status === 'CONFIRMED').length}
+                {duties.filter((d) => (d.status || d.duty_status) === 'CONFIRMED').length}
               </div>
             </div>
 
@@ -395,7 +552,7 @@ export default function InvigilatorPortalView({ user }) {
                 Pending Confirmation
               </div>
               <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#fbbf24', marginTop: '0.2rem' }}>
-                {duties.filter((d) => d.status !== 'CONFIRMED').length}
+                {duties.filter((d) => (d.status || d.duty_status) !== 'CONFIRMED').length}
               </div>
             </div>
 
@@ -449,7 +606,7 @@ export default function InvigilatorPortalView({ user }) {
             ) : (
               duties.map((duty) => {
                 const isSelected = duty.id === selectedDutyId;
-                const isConfirmed = duty.status === 'CONFIRMED';
+                const isConfirmed = (duty.status || duty.duty_status) === 'CONFIRMED';
 
                 return (
                   <div
@@ -512,9 +669,9 @@ export default function InvigilatorPortalView({ user }) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.78rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                           <span>Course: <strong style={{ color: 'var(--text-main)' }}>{duty.course_code}</strong> ({duty.course_name})</span>
                           <span>•</span>
-                          <span>Dept: <strong style={{ color: 'var(--text-main)' }}>{duty.course_dept}</strong></span>
+                          <span>Dept: <strong style={{ color: 'var(--text-main)' }}>{duty.course_dept || duty.course_department || duty.faculty_department || 'General'}</strong></span>
                           <span>•</span>
-                          <span>Capacity: <strong style={{ color: 'var(--text-main)' }}>{duty.capacity} Candidates</strong></span>
+                          <span>Capacity: <strong style={{ color: 'var(--text-main)' }}>{duty.capacity || duty.room_capacity || 30} Candidates</strong></span>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.45rem', fontSize: '0.78rem', color: '#94a3b8' }}>
@@ -668,16 +825,24 @@ export default function InvigilatorPortalView({ user }) {
 
             {/* Integrated Batch Attendance Controls */}
             <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.65rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.85rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleBulkMark('PRESENT')}
-                  disabled={actionLoading}
-                  style={{ fontSize: '0.78rem', color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    color: 'var(--accent-cyan)',
+                    background: 'rgba(6, 182, 212, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '20px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem'
+                  }}
                 >
-                  <CheckCircle2 size={13} />
-                  <span>Mark Remaining Present</span>
-                </button>
+                  <Camera size={13} />
+                  <span>Camera Attendance Only (Snap candidate photo to mark present)</span>
+                </span>
 
                 <button
                   className="btn btn-secondary"
@@ -812,6 +977,7 @@ export default function InvigilatorPortalView({ user }) {
                 const isPresent = st.attendance_status === 'PRESENT';
                 const isAbsent = st.attendance_status === 'ABSENT';
                 const isFlagged = st.attendance_status === 'FLAGGED';
+                const realPhotoUrl = getFullPhotoUrl(st.photo_path);
 
                 return (
                   <div
@@ -853,32 +1019,52 @@ export default function InvigilatorPortalView({ user }) {
                             isPresent ? 'badge-emerald' : isAbsent ? 'badge-rose' : isFlagged ? 'badge-amber' : 'badge-gray'
                           }`}
                         >
-                          {isPresent ? 'Verified Present' : isAbsent ? 'Marked Absent' : isFlagged ? 'Flagged' : 'Unverified'}
+                          {isPresent ? (st.photo_path ? '✓ Photo Verified' : 'Verified Present') : isAbsent ? 'Marked Absent' : isFlagged ? 'Flagged' : 'Unverified'}
                         </span>
                       </div>
 
-                      {/* Student info */}
+                      {/* Student info + Photo Thumbnail */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div
-                          style={{
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: '50%',
-                            background: isPresent
-                              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3))'
-                              : 'rgba(255, 255, 255, 0.06)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: '0.92rem',
-                            color: isPresent ? '#34d399' : 'var(--text-main)',
-                            border: '1px solid var(--border-subtle)',
-                            flexShrink: 0
-                          }}
-                        >
-                          {st.student_name?.charAt(0) || 'S'}
-                        </div>
+                        {realPhotoUrl ? (
+                          <div
+                            style={{
+                              width: '46px',
+                              height: '46px',
+                              borderRadius: '50%',
+                              overflow: 'hidden',
+                              border: '2px solid var(--accent-cyan)',
+                              boxShadow: '0 0 10px rgba(6, 182, 212, 0.3)',
+                              flexShrink: 0
+                            }}
+                          >
+                            <img
+                              src={realPhotoUrl}
+                              alt={st.student_name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              background: isPresent
+                                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3))'
+                                : 'rgba(255, 255, 255, 0.06)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.92rem',
+                              color: isPresent ? '#34d399' : 'var(--text-main)',
+                              border: '1px solid var(--border-subtle)',
+                              flexShrink: 0
+                            }}
+                          >
+                            {st.student_name?.charAt(0) || 'S'}
+                          </div>
+                        )}
 
                         <div style={{ overflow: 'hidden' }}>
                           <h4 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 0.15rem 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -894,43 +1080,94 @@ export default function InvigilatorPortalView({ user }) {
                       </div>
                     </div>
 
-                    {/* Integrated 1-Click Marking Buttons */}
+                    {/* Integrated Marking & Real Photo Capture Buttons */}
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                        <span>ATTENDANCE STATUS:</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                        <span>MARK ATTENDANCE:</span>
                         {st.marked_at && (
                           <span>{new Date(st.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         )}
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.35rem' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkAttendance(st.student_id, 'PRESENT')}
-                          style={{
-                            padding: '0.45rem 0.3rem',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                            background: isPresent ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.08)',
-                            color: isPresent ? '#fff' : 'var(--accent-emerald)',
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.25rem'
-                          }}
-                        >
-                          <UserCheck size={13} />
-                          <span>Present</span>
-                        </button>
+                      {/* Primary Attendance Action: Camera Only */}
+                      {isPresent && st.photo_path ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.35rem', marginBottom: '0.35rem' }}>
+                          <div
+                            style={{
+                              padding: '0.45rem 0.6rem',
+                              borderRadius: 'var(--radius-sm)',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              border: '1px solid rgba(16, 185, 129, 0.4)',
+                              color: '#34d399',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.3rem'
+                            }}
+                          >
+                            <CheckCircle2 size={13} />
+                            <span>✓ Verified Present</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPhotoCapture(st)}
+                            style={{
+                              padding: '0.45rem 0.6rem',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid rgba(6, 182, 212, 0.4)',
+                              background: 'rgba(6, 182, 212, 0.12)',
+                              color: '#67e8f9',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem'
+                            }}
+                            title="Retake candidate photo with camera"
+                          >
+                            <Camera size={13} />
+                            <span>Retake</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: '0.35rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPhotoCapture(st)}
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.6rem',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid rgba(6, 182, 212, 0.5)',
+                              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(59, 130, 246, 0.22))',
+                              color: '#67e8f9',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              boxShadow: '0 2px 8px rgba(6, 182, 212, 0.15)'
+                            }}
+                            title="Open camera to capture candidate photo and mark attendance"
+                          >
+                            <Camera size={15} />
+                            <span>📸 Mark Present (Camera)</span>
+                          </button>
+                        </div>
+                      )}
 
+                      {/* Bottom Row: Absent vs Flag */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
                         <button
                           type="button"
                           onClick={() => handleMarkAttendance(st.student_id, 'ABSENT')}
                           style={{
-                            padding: '0.45rem 0.3rem',
+                            padding: '0.4rem 0.3rem',
                             borderRadius: 'var(--radius-sm)',
                             border: '1px solid rgba(244, 63, 94, 0.4)',
                             background: isAbsent ? 'rgba(244, 63, 94, 0.3)' : 'rgba(244, 63, 94, 0.08)',
@@ -952,7 +1189,7 @@ export default function InvigilatorPortalView({ user }) {
                           type="button"
                           onClick={() => handleMarkAttendance(st.student_id, 'FLAGGED')}
                           style={{
-                            padding: '0.45rem 0.3rem',
+                            padding: '0.4rem 0.3rem',
                             borderRadius: 'var(--radius-sm)',
                             border: '1px solid rgba(245, 158, 11, 0.4)',
                             background: isFlagged ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.08)',
@@ -981,13 +1218,13 @@ export default function InvigilatorPortalView({ user }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '0.75rem', width: '60px' }}>Photo</th>
                     <th style={{ padding: '0.75rem', width: '90px' }}>Roll No</th>
                     <th style={{ padding: '0.75rem' }}>Candidate</th>
                     <th style={{ padding: '0.75rem' }}>Seat Number</th>
                     <th style={{ padding: '0.75rem' }}>Status</th>
-                    <th style={{ padding: '0.75rem' }}>Verification Info</th>
                     <th style={{ padding: '0.75rem' }}>Marked Time</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>Mark Attendance</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -995,9 +1232,23 @@ export default function InvigilatorPortalView({ user }) {
                     const isPresent = st.attendance_status === 'PRESENT';
                     const isAbsent = st.attendance_status === 'ABSENT';
                     const isFlagged = st.attendance_status === 'FLAGGED';
+                    const realPhotoUrl = getFullPhotoUrl(st.photo_path);
 
                     return (
                       <tr key={st.student_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '0.65rem 0.75rem' }}>
+                          {realPhotoUrl ? (
+                            <img
+                              src={realPhotoUrl}
+                              alt={st.student_name}
+                              style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--accent-cyan)' }}
+                            />
+                          ) : (
+                            <div style={{ width: 36, height: 36, borderRadius: '6px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '0.7rem' }}>
+                              <Camera size={14} />
+                            </div>
+                          )}
+                        </td>
                         <td style={{ padding: '0.65rem 0.75rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent-cyan)' }}>
                           {st.enrollment_no}
                         </td>
@@ -1021,37 +1272,54 @@ export default function InvigilatorPortalView({ user }) {
                             {st.attendance_status || 'UNVERIFIED'}
                           </span>
                         </td>
-                        <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.76rem', color: 'var(--text-dim)' }}>
-                          {st.verification_method ? (
-                            <span style={{ color: 'var(--text-muted)' }}>
-                              <UserCheck size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                              {st.verification_method === 'FACE_MATCH' ? 'Biometric Verified' : 'Manual ID Check'}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
                         <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-dim)', fontSize: '0.74rem' }}>
                           {st.marked_at ? new Date(st.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </td>
                         <td style={{ padding: '0.65rem 0.75rem', textAlign: 'center' }}>
                           <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                            <button
-                              onClick={() => handleMarkAttendance(st.student_id, 'PRESENT')}
-                              title="Mark Present"
-                              style={{
-                                padding: '0.25rem 0.6rem',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid rgba(16, 185, 129, 0.35)',
-                                background: isPresent ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
-                                color: isPresent ? '#fff' : 'var(--accent-emerald)',
-                                fontSize: '0.74rem',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Present
-                            </button>
+                            {isPresent && st.photo_path ? (
+                              <button
+                                onClick={() => handleOpenPhotoCapture(st)}
+                                title="Retake candidate photo with camera"
+                                style={{
+                                  padding: '0.25rem 0.55rem',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#34d399',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                <CheckCircle2 size={12} />
+                                <span>Verified (Retake)</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenPhotoCapture(st)}
+                                title="Snap candidate photo with camera and mark present"
+                                style={{
+                                  padding: '0.25rem 0.65rem',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid rgba(6, 182, 212, 0.5)',
+                                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(59, 130, 246, 0.22))',
+                                  color: '#67e8f9',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                <Camera size={12} />
+                                <span>📸 Mark Present</span>
+                              </button>
+                            )}
 
                             <button
                               onClick={() => handleMarkAttendance(st.student_id, 'ABSENT')}
@@ -1095,6 +1363,243 @@ export default function InvigilatorPortalView({ user }) {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* REAL PHOTO CAPTURE MODAL (INVIGILATOR LIVE WEBCAM SNAP) */}
+      {/* ========================================================= */}
+      {photoModalStudent && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background: 'rgba(3, 7, 18, 0.85)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem'
+          }}
+          onClick={handleClosePhotoCapture}
+        >
+          <div
+            className="card"
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              background: '#0d1322',
+              border: '1px solid rgba(6, 182, 212, 0.4)',
+              borderRadius: '18px',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(6, 182, 212, 0.2)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1rem 1.4rem',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(15, 23, 42, 0.8)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '8px',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--accent-cyan)'
+                  }}
+                >
+                  <Camera size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    Capture Candidate Photo
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {photoModalStudent.student_name} • Roll: <span style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>{photoModalStudent.enrollment_no}</span> (Seat: {photoModalStudent.seat_number})
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleClosePhotoCapture}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '50%',
+                  width: 30,
+                  height: 30,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body / Viewfinder */}
+            <div style={{ padding: '1.25rem 1.4rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div
+                style={{
+                  width: '100%',
+                  height: 320,
+                  borderRadius: '14px',
+                  background: '#040711',
+                  border: '2px solid rgba(6, 182, 212, 0.45)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {capturedSnapshot ? (
+                  /* Preview of snapped photo */
+                  <img
+                    src={capturedSnapshot}
+                    alt="Captured candidate"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#070c18' }}
+                  />
+                ) : (
+                  /* Live webcam feed */
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: cameraStreamActive ? 'block' : 'none'
+                      }}
+                    />
+
+                    {!cameraStreamActive && (
+                      <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                        <Camera size={40} color="var(--accent-cyan)" style={{ opacity: 0.7, marginBottom: '0.5rem' }} />
+                        <p style={{ fontSize: '0.84rem', margin: '0 0 0.75rem' }}>
+                          {cameraError || 'Initializing live camera feed...'}
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => fileInputRef.current?.click()}
+                          style={{ fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                        >
+                          <Upload size={14} />
+                          <span>Select / Snap Photo From Device</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Hidden canvas for taking snapshot */}
+                <canvas ref={canvasRef} style={{ display: 'none' }} width={640} height={480} />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  capture="user"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '0.65rem' }}>
+                {!capturedSnapshot ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleTakeSnapshot}
+                      disabled={!cameraStreamActive}
+                      style={{
+                        flex: 2,
+                        padding: '0.65rem',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem'
+                      }}
+                    >
+                      <Camera size={16} />
+                      <span>📸 Snap Photo Now</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ flex: 1, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      title="Upload or pick photo"
+                    >
+                      <Upload size={14} />
+                      <span>Upload</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleSavePhotoAndMarkPresent}
+                      disabled={isSavingPhoto}
+                      style={{
+                        flex: 2,
+                        padding: '0.65rem',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        background: 'var(--accent-emerald)',
+                        borderColor: 'var(--accent-emerald)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem'
+                      }}
+                    >
+                      <Check size={16} />
+                      <span>{isSavingPhoto ? 'Saving Real Photo...' : '✓ Save Photo & Mark Present'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleRetakeSnapshot}
+                      disabled={isSavingPhoto}
+                      style={{ flex: 1, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                    >
+                      <RotateCcw size={14} />
+                      <span>Retake</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
