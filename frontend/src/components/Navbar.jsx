@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldCheck, LogIn, LogOut, Terminal, Layers } from 'lucide-react';
+import { ShieldCheck, LogOut, Layers } from 'lucide-react';
 
-export default function Navbar({ user, onOpenLogin, onLogout, activeTab, setActiveTab }) {
+export default function Navbar({ user, onLogout }) {
   return (
     <header className="app-header">
       <div className="brand-section">
@@ -10,7 +10,7 @@ export default function Navbar({ user, onOpenLogin, onLogout, activeTab, setActi
         </div>
         <div className="brand-text">
           <h1>ExamSphere</h1>
-          <p>Automated Exam Management</p>
+          <p>Administrator Control Center</p>
         </div>
       </div>
 
@@ -20,26 +20,16 @@ export default function Navbar({ user, onOpenLogin, onLogout, activeTab, setActi
           Backend :5000 Live
         </div>
 
-        {user ? (
-          <>
-            <div className="user-badge">
-              <ShieldCheck size={16} color="#6366f1" />
-              <span>{user.name}</span>
-              <span className={`role-pill ${user.role.toLowerCase()}`}>
-                {user.role}
-              </span>
-            </div>
-            <button className="btn btn-secondary" onClick={onLogout} title="Log Out">
-              <LogOut size={16} />
-              <span>Logout</span>
-            </button>
-          </>
-        ) : (
-          <button className="btn btn-primary" onClick={onOpenLogin}>
-            <LogIn size={16} />
-            <span>Login</span>
-          </button>
-        )}
+        <div className="user-badge">
+          <ShieldCheck size={16} color="#6366f1" />
+          <span>{user?.name || 'Administrator'}</span>
+          <span className="role-pill admin">ADMIN</span>
+        </div>
+
+        <button className="btn btn-secondary" onClick={onLogout} title="Log Out">
+          <LogOut size={16} />
+          <span>Logout</span>
+        </button>
       </div>
     </header>
   );

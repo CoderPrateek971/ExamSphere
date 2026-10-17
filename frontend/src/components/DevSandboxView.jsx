@@ -61,10 +61,10 @@ export default function DevSandboxView() {
       id: '7',
       name: 'Invigilator Portal & Attendance',
       functionality: 'View assigned duties, verify student identities, perform camera-based face matching and record attendance.',
-      status: 'Ready for Development',
-      endpoints: ['GET /api/invigilator/students', 'POST /api/attendance/verify'],
+      status: 'COMPLETED & LIVE',
+      endpoints: ['GET /api/invigilator/duties', 'GET /api/invigilator/duties/:id/students', 'POST /api/invigilator/attendance/verify-face', 'POST /api/invigilator/attendance/mark'],
       icon: Eye,
-      color: '#06b6d4'
+      color: '#10b981'
     },
     {
       id: '8',
