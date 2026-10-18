@@ -5,14 +5,16 @@ import MasterDataView from './components/MasterDataView';
 import SeatingAllocationView from './components/SeatingAllocationView';
 import AuditLogsView from './components/AuditLogsView';
 import DevSandboxView from './components/DevSandboxView';
+import ExamSchedulingView from './components/scheduling/ExamSchedulingView';
 import FacultyDutyWorkloadView from './components/duty-management/FacultyDutyWorkloadView';
 import ExamIncidentManagementView from './components/incident-management/ExamIncidentManagementView';
 import InvigilatorPortalView from './components/InvigilatorPortalView';
+import FacultyPortalView from './components/faculty/FacultyPortalView';
 import PortalLoginView from './components/PortalLoginView';
 import AdminAttendanceView from './components/AdminAttendanceView';
 import LoginModal from './components/LoginModal';
 import { api } from './api';
-import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera } from 'lucide-react';
+import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera, Calendar, HelpCircle } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -68,8 +70,8 @@ export default function App() {
     if (loggedInUser.role === 'ADMIN') {
       loadStats();
     }
-    setActiveTab('incident-management');
-    setFacultyTab('invigilation');
+    setActiveTab(loggedInUser.role === 'ADMIN' ? 'incident-management' : 'doubts');
+    setFacultyTab('doubts');
   };
 
   const handleLogout = () => {
@@ -79,8 +81,21 @@ export default function App() {
     setIsLoginOpen(false);
   };
 
-  // Secure role switch: Open credential verification modal pre-targeted to required role
+  // Role switch handler: Open credentials login modal when switching to Faculty
   const handleRequestSwitchRole = (targetRole) => {
+    if (targetRole === 'ADMIN') {
+      const adminUser = {
+        id: 1,
+        name: 'Exam Controller Admin',
+        email: 'admin@examsphere.edu',
+        role: 'ADMIN',
+        department: 'Examination Cell'
+      };
+      setUser(adminUser);
+      api.setUser(adminUser);
+      loadStats();
+      return;
+    }
     setSwitchTargetRole(targetRole);
     setIsLoginOpen(true);
   };
@@ -169,6 +184,14 @@ export default function App() {
         <main className="main-content" style={{ maxWidth: '1400px', margin: '0 auto', width: '100%', padding: '1.5rem 2rem' }}>
           <div className="nav-tabs" style={{ marginBottom: '1.5rem' }}>
             <button
+              className={`tab-btn ${facultyTab === 'doubts' ? 'active' : ''}`}
+              onClick={() => setFacultyTab('doubts')}
+            >
+              <HelpCircle size={16} />
+              <span>Faculty Portal & Doubt Resolution (Module 6)</span>
+            </button>
+
+            <button
               className={`tab-btn ${facultyTab === 'invigilation' ? 'active' : ''}`}
               onClick={() => setFacultyTab('invigilation')}
             >
@@ -185,9 +208,15 @@ export default function App() {
             </button>
           </div>
 
-          {facultyTab === 'invigilation' ? (
+          {facultyTab === 'doubts' && (
+            <FacultyPortalView user={user} />
+          )}
+
+          {facultyTab === 'invigilation' && (
             <InvigilatorPortalView user={user} onLogout={handleLogout} />
-          ) : (
+          )}
+
+          {facultyTab === 'incident' && (
             <ExamIncidentManagementView user={user} />
           )}
         </main>
@@ -253,6 +282,15 @@ export default function App() {
             <span>Resource & Data Management</span>
           </button>
 
+          {/* Module 3: Exam Scheduling & Timetable */}
+          <button
+            className={`tab-btn ${activeTab === 'scheduling' ? 'active' : ''}`}
+            onClick={() => setActiveTab('scheduling')}
+          >
+            <Calendar size={16} />
+            <span>Exam Scheduling (Module 3)</span>
+          </button>
+
           {/* Module 4: Smart Room & Seating Allocation */}
           <button
             className={`tab-btn ${activeTab === 'seating' ? 'active' : ''}`}
@@ -301,6 +339,10 @@ export default function App() {
 
         {activeTab === 'master-data' && (
           <MasterDataView user={user} onDataChange={loadStats} />
+        )}
+
+        {activeTab === 'scheduling' && (
+          <ExamSchedulingView user={user} />
         )}
 
         {activeTab === 'seating' && (

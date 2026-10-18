@@ -113,8 +113,17 @@ export const api = {
   },
 
   // Module 3: Exam Scheduling & Timetable
-  getExams() {
-    return this.request('/scheduling/exams');
+  getExams(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.department) searchParams.append('department', params.department);
+    if (params.semester) searchParams.append('semester', params.semester);
+    if (params.examType) searchParams.append('examType', params.examType);
+    if (params.status) searchParams.append('status', params.status);
+    if (params.startDate) searchParams.append('startDate', params.startDate);
+    if (params.endDate) searchParams.append('endDate', params.endDate);
+    if (params.search) searchParams.append('search', params.search);
+    const qs = searchParams.toString();
+    return this.request(`/scheduling/exams${qs ? `?${qs}` : ''}`);
   },
 
   getExam(id) {
@@ -145,12 +154,66 @@ export const api = {
     return this.request('/scheduling/conflicts');
   },
 
+  validateExamSlot(data) {
+    return this.request('/scheduling/validate-slot', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   generateTimetable(data) {
     return this.request('/scheduling/generate', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
+
+  getTimetableMatrix(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.department) searchParams.append('department', params.department);
+    if (params.semester) searchParams.append('semester', params.semester);
+    if (params.examType) searchParams.append('examType', params.examType);
+    const qs = searchParams.toString();
+    return this.request(`/scheduling/matrix${qs ? `?${qs}` : ''}`);
+  },
+
+  autoResolveConflicts(data = {}) {
+    return this.request('/scheduling/auto-resolve', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  suggestOptimalSlot(data) {
+    return this.request('/scheduling/suggest-slot', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  seedDemoSchedule() {
+    return this.request('/scheduling/seed-demo', {
+      method: 'POST',
+    });
+  },
+
+  clearAllExams() {
+    return this.request('/scheduling/clear-all', {
+      method: 'DELETE',
+    });
+  },
+
+  getDatesSpan() {
+    return this.request('/scheduling/dates-span');
+  },
+
+  saveDatesSpan(data) {
+    return this.request('/scheduling/dates-span', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
 
   // Module 4A: Anti-Cheating Seating Allocation API
   allocateSeating(data) {
@@ -401,5 +464,83 @@ export const api = {
     if (params.search) searchParams.append('search', params.search);
     const qs = searchParams.toString();
     return this.request(`/invigilator/attendance/overview${qs ? `?${qs}` : ''}`);
+  },
+
+  // Module 6: Faculty Portal & Doubt Resolution API
+  getFacultySchedule(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.facultyId) searchParams.append('facultyId', params.facultyId);
+    if (params.email) searchParams.append('email', params.email);
+    if (params.department) searchParams.append('department', params.department);
+    if (params.semester) searchParams.append('semester', params.semester);
+    if (params.examType) searchParams.append('examType', params.examType);
+    if (params.search) searchParams.append('search', params.search);
+    const qs = searchParams.toString();
+    return this.request(`/faculty-portal/schedule${qs ? `?${qs}` : ''}`);
+  },
+
+  getFacultyDuties(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.facultyId) searchParams.append('facultyId', params.facultyId);
+    if (params.email) searchParams.append('email', params.email);
+    if (params.status) searchParams.append('status', params.status);
+    const qs = searchParams.toString();
+    return this.request(`/faculty-portal/duties${qs ? `?${qs}` : ''}`);
+  },
+
+  updateFacultyDutyStatus(dutyId, data) {
+    return this.request(`/faculty-portal/duties/${dutyId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getDoubtRequests(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.facultyId) searchParams.append('facultyId', params.facultyId);
+    if (params.email) searchParams.append('email', params.email);
+    if (params.examId) searchParams.append('examId', params.examId);
+    if (params.roomId) searchParams.append('roomId', params.roomId);
+    if (params.status) searchParams.append('status', params.status);
+    if (params.search) searchParams.append('search', params.search);
+    const qs = searchParams.toString();
+    return this.request(`/faculty-portal/doubts${qs ? `?${qs}` : ''}`);
+  },
+
+  createDoubtRequest(data) {
+    return this.request('/faculty-portal/doubts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  resolveDoubtRequest(doubtId, data) {
+    return this.request(`/faculty-portal/doubts/${doubtId}/resolve`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getFacultyMetrics(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.facultyId) searchParams.append('facultyId', params.facultyId);
+    if (params.email) searchParams.append('email', params.email);
+    const qs = searchParams.toString();
+    return this.request(`/faculty-portal/metrics${qs ? `?${qs}` : ''}`);
+  },
+
+  getFacultyNotifications(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.email) searchParams.append('email', params.email);
+    if (params.limit) searchParams.append('limit', params.limit);
+    const qs = searchParams.toString();
+    return this.request(`/faculty-portal/notifications${qs ? `?${qs}` : ''}`);
+  },
+
+  sendFacultyEmail(data) {
+    return this.request('/faculty-portal/send-email', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 };

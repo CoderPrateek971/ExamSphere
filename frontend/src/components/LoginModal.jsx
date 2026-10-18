@@ -29,12 +29,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
       const roleToUse = targetRole || 'ADMIN';
       setSelectedRole(roleToUse);
       if (roleToUse === 'FACULTY') {
-        setEmail('faculty@examsphere.edu');
+        setEmail(isSwitchMode ? '' : 'nishtha.gupta.24cse@bmu.edu.in');
+        setPassword('');
       } else {
         setEmail('admin@examsphere.edu');
+        setPassword('admin123');
       }
     }
-  }, [isOpen, targetRole]);
+  }, [isOpen, targetRole, isSwitchMode]);
 
   if (!isOpen) return null;
 
@@ -44,17 +46,23 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
     setError(null);
     setPassword('');
     if (role === 'FACULTY') {
-      setEmail('faculty@examsphere.edu');
+      setEmail('');
+      setPassword('');
     } else {
       setEmail('admin@examsphere.edu');
+      setPassword('admin123');
     }
   };
 
-  const handleQuickFill = (fillEmail, fillPass = 'faculty123', role = 'FACULTY') => {
+  const handleQuickFill = (fillEmail, fillPass = '', role = 'FACULTY') => {
     if (isSwitchMode && role !== targetRole) return;
     setSelectedRole(role);
     setEmail(fillEmail);
-    setPassword(fillPass);
+    if (role === 'FACULTY') {
+      setPassword(''); // Never pre-fill password for faculty; user types it
+    } else {
+      setPassword(fillPass);
+    }
     setError(null);
   };
 
@@ -387,14 +395,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                 }}
               >
                 <Sparkles size={13} />
-                <span>Fill Admin: admin@examsphere.edu / admin123</span>
+                <span>Fill Admin: admin@examsphere.edu</span>
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               <button
                 type="button"
-                onClick={() => handleQuickFill('rajesh.sharma@bmu.edu.in', 'faculty123', 'FACULTY')}
+                onClick={() => handleQuickFill('nishtha.gupta.24cse@bmu.edu.in', '', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
                   border: '1px dashed rgba(6, 182, 212, 0.35)',
@@ -408,13 +416,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                   justifyContent: 'space-between'
                 }}
               >
-                <span>👨‍🏫 Dr. Rajesh Sharma (CSE Prof)</span>
-                <code style={{ fontSize: '0.72rem', opacity: 0.8 }}>rajesh.sharma@bmu.edu.in</code>
+                <span>👩‍🏫 Prof. Nishtha Gupta (CSE)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.85 }}>nishtha.gupta.24cse@bmu.edu.in</code>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickFill('priya.nair@bmu.edu.in', 'faculty123', 'FACULTY')}
+                onClick={() => handleQuickFill('prateek.garg.24cse@bmu.edu.in', '', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
                   border: '1px dashed rgba(6, 182, 212, 0.35)',
@@ -428,17 +436,17 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                   justifyContent: 'space-between'
                 }}
               >
-                <span>👩‍🏫 Dr. Priya Nair (ECE Assoc Prof)</span>
-                <code style={{ fontSize: '0.72rem', opacity: 0.8 }}>priya.nair@bmu.edu.in</code>
+                <span>👨‍🏫 Prof. Prateek Garg (CSE)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.85 }}>prateek.garg.24cse@bmu.edu.in</code>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickFill('invigilator@examsphere.edu', 'faculty123', 'FACULTY')}
+                onClick={() => handleQuickFill('riwan.bhati.24cse@bmu.edu.in', '', 'FACULTY')}
                 style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1px dashed rgba(16, 185, 129, 0.35)',
-                  color: '#6ee7b7',
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px dashed rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
                   padding: '0.45rem 0.75rem',
                   borderRadius: 'var(--radius-sm)',
                   fontSize: '0.76rem',
@@ -448,8 +456,28 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                   justifyContent: 'space-between'
                 }}
               >
-                <span>👁️ General Demo Invigilator</span>
-                <code style={{ fontSize: '0.72rem', opacity: 0.8 }}>invigilator@examsphere.edu</code>
+                <span>👨‍🏫 Prof. Riwan Bhati (CSE)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.85 }}>riwan.bhati.24cse@bmu.edu.in</code>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('nischay.mehta.24cse@bmu.edu.in', '', 'FACULTY')}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px dashed rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>👨‍🏫 Prof. Nischay Mehta (CSE)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.85 }}>nischay.mehta.24cse@bmu.edu.in</code>
               </button>
             </div>
           )}
