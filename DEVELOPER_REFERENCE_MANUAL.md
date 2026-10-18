@@ -41,10 +41,10 @@
 | :---: | :--- | :--- | :---: |
 | **1** | **Authentication & Role Management** | Login, JWT authentication, role-based access for Admin, Faculty, Invigilator, and Student. | **COMPLETED & LIVE** |
 | **2** | **Resource & Data Management** | Student, faculty, course, and room CRUD operations; CSV bulk upload and data validation. | **COMPLETED & LIVE** |
-| **3** | **Exam Scheduling** | Create examinations, generate timetables, and detect scheduling conflicts. | *Pending* |
+| **3** | **Exam Scheduling** | Create examinations, generate timetables, and detect scheduling conflicts. | **COMPLETED & LIVE** |
 | **4** | **Smart Room & Seating Allocation** | Allocate rooms based on capacity, assign student seats, and apply anti-cheating seating rules. | **COMPLETED & LIVE** |
 | **5** | **Faculty Duty & Workload Management** | Assign invigilators to rooms and time slots, check faculty availability, and balance workloads. | *Pending* |
-| **6** | **Faculty Portal & Doubt Resolution** | Allow faculty to view examination schedules and assigned duties, receive student doubt requests, and respond to them. | *Pending* |
+| **6** | **Faculty Portal & Doubt Resolution** | Allow faculty to view examination schedules and assigned duties, receive student doubt requests through email, and respond to them. | **COMPLETED & LIVE** |
 | **7** | **Invigilator Portal & Attendance** | View assigned duties, verify student identities, perform camera-based face matching, and record attendance. | *Pending* |
 | **8** | **Exam-Day Incident Management** | Submit Unfair Means (UFM) reports with photo evidence and written statements, manage incident records, and find substitute invigilators. | *Pending* |
 | **9** | **Notification & Alert System** | Send student examination and seating emails, faculty duty notifications, and emergency alerts; track notification status. | *Pending* |
@@ -265,9 +265,21 @@ All tables exist in `examsphere_db` and are initialized via `backend/database/sc
 - **Path:** `backend/services/masterDataService.js`, `backend/services/csvIngestionService.js`, `backend/controllers/masterDataController.js`
 - **Functionalities:** Complete CRUD operations for Students, Faculty, Courses, and Rooms. Extensible CSV streaming engine via Strategy Pattern.
 
-### Module 3: Exam Scheduling (Pending)
-- **Path:** `backend/services/schedulingService.js` & `backend/controllers/schedulingController.js`
-- **Functionalities:** Create examinations, timetable generator, hard constraint conflict detection (no student or course overlapping time slots; respect room availability).
+### Module 3: Exam Scheduling (Completed & Live)
+- **Path:** `backend/services/schedulingService.js`, `backend/controllers/schedulingController.js`, `backend/routes/schedulingRoutes.js`, `frontend/src/components/scheduling/ExamSchedulingView.jsx`, `frontend/src/components/scheduling/CreateExamModal.jsx`, `frontend/src/components/scheduling/GenerateTimetableModal.jsx`, `frontend/src/components/scheduling/TimetableCalendarGrid.jsx`
+- **Functionalities:**
+  1. **Examination CRUD & Management:** Manual examination creation with course linking, session categorization (`END_TERM`, `MID_TERM`, `QUIZ`), date/time window selection, duration calculation, and live conflict pre-checking.
+  2. **Automated Timetable Generation Algorithm:** Multi-constraint generator grouping courses by academic cohort (`${department}_${semester}`), enforcing difficulty-aware spacing (dedicated 1-2 prep days between Level-4 and Level-5 heavy exams), weekend skipping (skipping Saturdays & Sundays), morning/afternoon slot prioritization, and guaranteeing zero cohort collisions.
+  3. **Multi-Dimensional Conflict Detection Engine:** Scans scheduled exams for:
+     - Hard cohort clashes (simultaneous exams for the same department and semester)
+     - Individual student cross-enrollment clashes (students enrolled in multiple courses via `student_courses` scheduled simultaneously)
+     - Room double-bookings (overlapping seat allocations)
+     - Faculty invigilator double-bookings (overlapping invigilation duties)
+     - Cognitive load / high-difficulty strain (consecutive heavy exams with 0 prep days)
+     - Same-day cohort multiple exam fatigue
+     - Invalid time intervals
+  4. **Interactive Views & Visualizations:** Visual Timetable Calendar Matrix (Morning / Afternoon / Evening slots), Master Examination Table with filters, Dedicated Conflict Inspector with 1-click reschedule actions, Student Cohort Roadmap with prep buffer indicators, and Official Printable Notice Roster.
+  5. **Automated Headless Unit Tests:** `backend/tests/test-exam-scheduling.js` (7 comprehensive unit tests covering interval overlap math, cohort clashes, cross-enrollments, difficulty spacing, weekend skipping, severity classification, and matrix grouping).
 
 ### Module 4: Smart Room & Seating Allocation (Completed & Live)
 - **Path:** `backend/services/seatingService.js`, `backend/controllers/seatingController.js`, `backend/routes/seatingRoutes.js`, `frontend/src/components/SeatingAllocationView.jsx`
@@ -277,9 +289,16 @@ All tables exist in `examsphere_db` and are initialized via `backend/database/sc
 - **Path:** `backend/services/dutyService.js` & `backend/controllers/dutyController.js`
 - **Functionalities:** Assign invigilators to exam halls and time slots, check faculty availability, ensure maximum duty ceilings (`max_duties`), balance duties across seniority tiers.
 
-### Module 6: Faculty Portal & Doubt Resolution (Pending)
-- **Path:** `backend/services/facultyPortalService.js` & `backend/controllers/facultyPortalController.js`
-- **Functionalities:** Dedicated faculty view for examination schedules and invigilation duties, receive live student doubt requests forwarded from halls, submit answers or indicate room visit.
+### Module 6: Faculty Portal & Doubt Resolution (Completed & Live)
+- **Path:** `backend/services/facultyPortalService.js`, `backend/controllers/facultyPortalController.js`, `backend/routes/facultyPortalRoutes.js`, `frontend/src/components/faculty/FacultyPortalView.jsx`, `frontend/src/components/faculty/RaiseDoubtModal.jsx`, `frontend/src/components/faculty/ResolveDoubtModal.jsx`, `frontend/src/components/faculty/EmailNotificationModal.jsx`
+- **Functionalities:**
+  1. **Examination Schedules & Timetable View:** Departmental & taught course examination calendar, exam slots, durations, room assignments, and student enrollment counts.
+  2. **Assigned Invigilation Duties Roster:** Roster of hall supervision duties with room numbers, capacities, and 1-click duty status confirmation (`CONFIRMED`).
+  3. **Live Student Doubt Routing from Exam Halls:** Invigilator interface allowing forwarding of urgent student questions from exam rooms to designated subject faculty.
+  4. **Automated Institutional Email Notification Dispatch:** Dispatches urgent formatted email notifications to faculty email addresses with question details, hall numbers, urgency levels, and logs delivery in the `notifications` table.
+  5. **Official Doubt Resolution & Clarification Engine:** Allows faculty to broadcast written clarifications/corrections back to the exam hall or signal an in-person room visit (`VISITED` / `EN ROUTE`).
+  6. **Automated Headless Unit Tests:** `backend/tests/test-faculty-portal.js` (6 unit tests covering schedule query, duties confirmation, doubt creation, automated email generation, resolution workflow, and metrics).
+
 
 ### Module 7: Invigilator Portal & Attendance (Pending)
 - **Path:** `backend/services/attendanceService.js` & `backend/controllers/attendanceController.js`

@@ -1,4 +1,3 @@
-```jsx
 import React from 'react';
 import {
   CheckCircle2,
@@ -45,14 +44,16 @@ export default function DevSandboxView() {
       name: 'Exam Scheduling',
       description:
         'Create examinations, generate timetables and detect scheduling conflicts.',
-      status: 'Ready for Development',
+      status: 'COMPLETED & LIVE',
       endpoints: [
         'GET /api/scheduling/exams',
         'POST /api/scheduling/generate',
-        'GET /api/scheduling/conflicts'
+        'GET /api/scheduling/conflicts',
+        'POST /api/scheduling/validate-slot',
+        'GET /api/scheduling/matrix'
       ],
       icon: Calendar,
-      color: '#f59e0b'
+      color: '#10b981'
     },
     {
       id: '4',
@@ -87,11 +88,13 @@ export default function DevSandboxView() {
       name: 'Faculty Portal & Doubt Resolution',
       description:
         'Allow faculty to view examination schedules and assigned duties, receive student doubt requests and respond to them.',
-      status: 'Ready for Development',
+      status: 'COMPLETED & LIVE',
       endpoints: [
-        'GET /api/faculty/duties',
-        'GET /api/doubts/stream',
-        'PUT /api/doubts/:id/resolve'
+        'GET /api/faculty-portal/schedule',
+        'GET /api/faculty-portal/duties',
+        'GET /api/faculty-portal/doubts',
+        'POST /api/faculty-portal/doubts',
+        'PUT /api/faculty-portal/doubts/:id/resolve'
       ],
       icon: Users,
       color: '#06b6d4'
@@ -317,4 +320,3 @@ export default function DevSandboxView() {
     </div>
   );
 }
-```

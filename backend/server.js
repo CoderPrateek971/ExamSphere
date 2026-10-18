@@ -15,6 +15,7 @@ const seatingRoutes = require('./routes/seatingRoutes');       // Module 4: Room
 const dutyRoutes = require('./routes/dutyRoutes');             // Module 5: Faculty Duty Balancer
 const invigilatorRoutes = require('./routes/invigilatorRoutes'); // Module 7: Invigilator Portal & Attendance
 const incidentRoutes = require('./routes/incidentRoutes');     // Module 8: Exam-Day Incident Management
+const facultyPortalRoutes = require('./routes/facultyPortalRoutes'); // Module 6: Faculty Portal & Doubt Resolution
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -44,8 +45,12 @@ app.use('/api/scheduling', schedulingRoutes); // Module 3: Scheduling & Timetabl
 app.use('/api/seating', seatingRoutes);       // Module 4: Anti-Cheating Seating
 app.use('/api/allocations', seatingRoutes);   // Module 4: Room & Seating Allocation
 app.use('/api/duty', dutyRoutes);             // Module 5: Faculty Duty Balancer
+app.use('/api/faculty-portal', facultyPortalRoutes); // Module 6: Faculty Portal & Doubt Resolution
+app.use('/api/faculty', facultyPortalRoutes);        // Module 6: Alias
+app.use('/api/doubts', facultyPortalRoutes);         // Module 6: Alias
 app.use('/api/invigilator', invigilatorRoutes); // Module 7: Invigilator Portal & Attendance
 app.use('/api/incidents', incidentRoutes);    // Module 8: Exam-Day Incident Management
+
 
 // 404 Handler
 app.use((req, res) => {

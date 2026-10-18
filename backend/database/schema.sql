@@ -220,13 +220,20 @@ CREATE TABLE IF NOT EXISTS doubt_requests (
     room_id INT NOT NULL,
     student_id INT NOT NULL,
     faculty_id INT NOT NULL, -- Subject faculty pinged
+    invigilator_id INT NULL, -- Invigilator who forwarded the doubt from exam hall
+    invigilator_name VARCHAR(120) NULL,
     question_text TEXT NOT NULL,
+    response_text TEXT NULL,
     status ENUM('PENDING', 'ACCEPTED', 'VISITED', 'RESOLVED') DEFAULT 'PENDING',
+    urgency ENUM('NORMAL', 'HIGH', 'CRITICAL') DEFAULT 'HIGH',
+    email_sent BOOLEAN DEFAULT TRUE,
+    resolved_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (faculty_id) REFERENCES faculty(id) ON DELETE CASCADE
+    FOREIGN KEY (faculty_id) REFERENCES faculty(id) ON DELETE CASCADE,
+    FOREIGN KEY (invigilator_id) REFERENCES faculty(id) ON DELETE SET NULL
 );
 
 -- --------------------------------------------------------------------
@@ -258,6 +265,15 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     ip_address VARCHAR(45) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- --------------------------------------------------------------------
+-- 14. SYSTEM SETTINGS TABLE (Global Configuration & Timetable Span)
+-- --------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ====================================================================

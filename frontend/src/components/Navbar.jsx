@@ -1,4 +1,3 @@
-```jsx
 import React from 'react';
 import {
   ShieldCheck,
@@ -156,4 +155,4 @@ export default function Navbar({
     </header>
   );
 }
-```
+
