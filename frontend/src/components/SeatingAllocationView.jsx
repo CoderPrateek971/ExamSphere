@@ -28,8 +28,10 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
-  List
+  List,
+  Mail
 } from 'lucide-react';
+import StudentSeatingNotificationModal from './StudentSeatingNotificationModal';
 
 export default function SeatingAllocationView({ user, onNavigateToStep }) {
   const [exams, setExams] = useState([]);
@@ -75,6 +77,9 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
   const [arrangementsSearch, setArrangementsSearch] = useState('');
   const [arrangementsFilter, setArrangementsFilter] = useState('ALLOCATED'); // 'ALLOCATED' | 'ALL' | 'PENDING'
   const [deletingExamId, setDeletingExamId] = useState(null);
+
+  // Student Seating Notification Modal State
+  const [studentEmailModal, setStudentEmailModal] = useState({ isOpen: false, data: null });
 
   // Existing Plans Seating List State (No class visualization needed, only seating roster list)
   const [expandedExamId, setExpandedExamId] = useState(null);
@@ -1288,7 +1293,37 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          {/* Automated Student Seating Allotment Notification Action */}
+          <button
+            type="button"
+            className="btn btn-emerald"
+            onClick={() => setStudentEmailModal({
+              isOpen: true,
+              data: {
+                student_name: 'Aman Sharma',
+                student_email: 'aman.sharma@college.edu',
+                exam_name: 'Software Engineering',
+                room_number: 'E2-101',
+                seat_number: 'Desk 14',
+                exam_date: '2026-11-20',
+                time_slot: '09:30 AM - 12:30 PM'
+              }
+            })}
+            style={{
+              fontSize: '0.82rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              fontWeight: 700,
+              boxShadow: '0 2px 10px rgba(16, 185, 129, 0.25)'
+            }}
+            title="Send exam seating allotment notification to a student"
+          >
+            <Mail size={15} />
+            <span>Send Seating Notification</span>
+          </button>
+
           {onNavigateToStep && (
             <button 
               className="btn btn-secondary" 
@@ -4175,6 +4210,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                                         <th style={{ padding: '0.55rem 0.75rem', textAlign: 'left' }}>Classroom / Hall</th>
                                         <th style={{ padding: '0.55rem 0.75rem', textAlign: 'left' }}>Seat Number</th>
                                         <th style={{ padding: '0.55rem 0.75rem', textAlign: 'left' }}>Desk Position</th>
+                                        <th style={{ padding: '0.55rem 0.75rem', textAlign: 'right' }}>Notification</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -4197,6 +4233,38 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                                           <td style={{ padding: '0.55rem 0.75rem', color: 'var(--text-dim)', fontSize: '0.74rem' }}>
                                             Row {st.row_num}, Col {st.col_num}
                                           </td>
+                                          <td style={{ padding: '0.55rem 0.75rem', textAlign: 'right' }}>
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary"
+                                              style={{
+                                                padding: '0.25rem 0.55rem',
+                                                fontSize: '0.72rem',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.3rem',
+                                                color: '#34d399',
+                                                borderColor: 'rgba(16, 185, 129, 0.4)',
+                                                background: 'rgba(16, 185, 129, 0.08)'
+                                              }}
+                                              onClick={() => setStudentEmailModal({
+                                                isOpen: true,
+                                                data: {
+                                                  student_name: st.student_name,
+                                                  student_email: st.email || (st.student_name ? `${st.student_name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@college.edu` : 'aman.sharma@college.edu'),
+                                                  exam_name: ex.exam_name || 'Software Engineering',
+                                                  room_number: st.room_number || 'E2-101',
+                                                  seat_number: st.seat_number || 'Desk 14',
+                                                  exam_date: ex.exam_date || '2026-11-20',
+                                                  time_slot: ex.start_time && ex.end_time ? `${ex.start_time} - ${ex.end_time}` : '09:30 AM - 12:30 PM'
+                                                }
+                                              })}
+                                              title="Send exam seating allotment notification to student"
+                                            >
+                                              <Mail size={12} />
+                                              <span>Notify</span>
+                                            </button>
+                                          </td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -4215,6 +4283,16 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
           )}
         </>
       )}
+
+      {/* Student Seating Allotment Notification Modal */}
+      <StudentSeatingNotificationModal
+        isOpen={studentEmailModal.isOpen}
+        onClose={() => setStudentEmailModal({ isOpen: false, data: null })}
+        initialData={studentEmailModal.data}
+        onNotificationSent={(result) => {
+          showToast(`✓ Seating notification dispatched to student!`);
+        }}
+      />
     </div>
   );
 }
