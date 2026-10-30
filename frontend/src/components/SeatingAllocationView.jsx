@@ -31,7 +31,7 @@ import {
   List
 } from 'lucide-react';
 
-export default function SeatingAllocationView({ user }) {
+export default function SeatingAllocationView({ user, onNavigateToStep }) {
   const [exams, setExams] = useState([]);
   const [selectedExamId, setSelectedExamId] = useState('');
   const [secondaryExamId, setSecondaryExamId] = useState('');
@@ -1254,6 +1254,63 @@ export default function SeatingAllocationView({ user }) {
 
   return (
     <div className="seating-module">
+      {/* Workflow Navigation Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(6,182,212,0.12), rgba(16,185,129,0.12))',
+        border: '1px solid rgba(6,182,212,0.3)',
+        borderRadius: '10px',
+        padding: '0.85rem 1.25rem',
+        marginBottom: '1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{
+            background: '#06b6d4',
+            color: '#000',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 800
+          }}>3</span>
+          <div>
+            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 3: Smart Seating Allocation (Anti-Cheating Engine)</strong>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
+              {exams.length} scheduled exams available from Step 2. Select exam & venue rooms to generate alternating or interleaved seats. Seated rooms flow into Step 4 (Duty Allocation).
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => onNavigateToStep('scheduling')}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <span>⬅️ Back to Step 2: Scheduling</span>
+            </button>
+          )}
+
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => onNavigateToStep('duty-management')}
+              style={{ fontWeight: 600 }}
+            >
+              <span>Proceed to Step 4: Faculty Duty Allocation</span>
+              <ChevronRight size={15} />
+            </button>
+          )}
+        </div>
+      </div>
       {/* Toast Alert */}
       {toastMessage && (
         <div
