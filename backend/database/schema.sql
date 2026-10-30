@@ -158,21 +158,43 @@ CREATE TABLE IF NOT EXISTS attendance (
 -- --------------------------------------------------------------------
 -- 10. UNFAIR MEANS (UFM) REPORTS TABLE (Module 8 - Member 3)
 -- --------------------------------------------------------------------
+-- 10. UNFAIR MEANS (UFM) INCIDENTS TABLE (Module 8 - Exam-Day Incident Management)
+-- --------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ufm_reports (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    report_number VARCHAR(50) NOT NULL UNIQUE,
     exam_id INT NOT NULL,
-    student_id INT NOT NULL,
-    room_id INT NOT NULL,
-    invigilator_id INT NOT NULL,
+    exam_name VARCHAR(150) NULL,
+    course_code VARCHAR(50) NULL,
+    student_id INT NULL,
+    student_name VARCHAR(120) NOT NULL,
+    student_roll VARCHAR(50) NOT NULL,
+    student_dept VARCHAR(100) NULL,
+    room_id INT NULL,
+    room_number VARCHAR(50) NOT NULL,
+    desk_number VARCHAR(50) NULL,
+    invigilator_id INT NULL,
+    invigilator_name VARCHAR(120) NOT NULL,
+    invigilator_department VARCHAR(100) NULL,
+    incident_date DATE NOT NULL,
+    incident_time VARCHAR(20) NULL,
+    incident_type ENUM('UNAUTHORIZED_NOTES', 'MOBILE_DEVICE', 'SMARTWATCH_DEVICE', 'COPYING_NEIGHBOR', 'IMPERSONATION', 'COMMUNICATION', 'OTHER') NOT NULL,
+    severity ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') DEFAULT 'MEDIUM',
+    material_confiscated TEXT NOT NULL,
     incident_details TEXT NOT NULL,
-    evidence_photo_url VARCHAR(255) NULL,
     student_statement TEXT NULL,
+    witness_name VARCHAR(120) NULL,
+    evidence_photo_url LONGTEXT NULL,
     status ENUM('REPORTED', 'UNDER_REVIEW', 'ACTION_TAKEN', 'DISMISSED') DEFAULT 'REPORTED',
+    committee_remarks TEXT NULL,
+    penalty_imposed VARCHAR(255) NULL,
+    resolved_by VARCHAR(120) NULL,
+    resolved_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
-    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
-    FOREIGN KEY (invigilator_id) REFERENCES faculty(id) ON DELETE CASCADE
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (invigilator_id) REFERENCES faculty(id) ON DELETE SET NULL
 );
 
 -- --------------------------------------------------------------------

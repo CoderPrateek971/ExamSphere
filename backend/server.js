@@ -9,6 +9,10 @@ const { testConnection } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const masterDataRoutes = require('./routes/masterDataRoutes');
 const auditRoutes = require('./routes/auditRoutes');
+const schedulingRoutes = require('./routes/schedulingRoutes'); // Module 3: Exam Scheduling
+const seatingRoutes = require('./routes/seatingRoutes');       // Module 4: Anti-Cheating Seating Allocation
+const dutyRoutes = require('./routes/dutyRoutes');             // Module 5: Faculty Duty Balancer
+const incidentRoutes = require('./routes/incidentRoutes');     // Module 8: Exam-Day Incident Management (UFM)
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,6 +38,10 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);                   // Module 1: Auth & RBAC
 app.use('/api/master-data', masterDataRoutes);       // Module 2: Master Data & Bulk CSV
 app.use('/api/admin', auditRoutes);                 // Module 11: Audit Logs & Stats
+app.use('/api/scheduling', schedulingRoutes);       // Module 3: Scheduling & Timetable
+app.use('/api/seating', seatingRoutes);             // Module 4: Anti-Cheating Seating
+app.use('/api/duty', dutyRoutes);                   // Module 5: Faculty Duty Balancer
+app.use('/api/incidents', incidentRoutes);          // Module 8: Exam-Day Incident Management (UFM)
 
 // 404 Handler
 app.use((req, res) => {

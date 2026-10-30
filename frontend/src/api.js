@@ -84,5 +84,132 @@ export const api = {
   },
   getAuditLogs() {
     return this.request('/admin/audit-logs');
+  },
+
+  // Module 3: Exam Scheduling & Timetable
+  getExams() {
+    return this.request('/scheduling/exams');
+  },
+  getExam(id) {
+    return this.request(`/scheduling/exams/${id}`);
+  },
+  createExam(data) {
+    return this.request('/scheduling/exams', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  updateExam(id, data) {
+    return this.request(`/scheduling/exams/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+  deleteExam(id) {
+    return this.request(`/scheduling/exams/${id}`, {
+      method: 'DELETE'
+    });
+  },
+  detectConflicts() {
+    return this.request('/scheduling/conflicts');
+  },
+  generateTimetable(data) {
+    return this.request('/scheduling/generate', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Module 4: Anti-Cheating Seating Allocation
+  allocateSeating(data) {
+    return this.request('/seating/allocate', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  getSeatingForExam(examId) {
+    return this.request(`/seating/exam/${examId}`);
+  },
+  getRoomSeatingGrid(roomId, examId = null) {
+    const queryStr = examId ? `?examId=${examId}` : '';
+    return this.request(`/seating/room/${roomId}/grid${queryStr}`);
+  },
+  getRoomsOverview(examId = null) {
+    const queryStr = examId ? `?examId=${examId}` : '';
+    return this.request(`/seating/rooms-overview${queryStr}`);
+  },
+  clearSeatingAllocations(examId) {
+    return this.request(`/seating/exam/${examId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Module 5: Faculty Duty & Workload Management
+  getDutyRoster() {
+    return this.request('/duty/roster');
+  },
+  getWorkloadStats() {
+    return this.request('/duty/workload-stats');
+  },
+  autoAllocateDuties(data = {}) {
+    return this.request('/duty/auto-allocate', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  checkFacultyAvailability(params) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/duty/availability?${query}`);
+  },
+  assignDuty(data) {
+    return this.request('/duty/assign', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  assignSubstitute(dutyId, substituteFacultyId) {
+    return this.request(`/duty/${dutyId}/substitute`, {
+      method: 'PUT',
+      body: JSON.stringify({ substituteFacultyId })
+    });
+  },
+  removeDuty(dutyId) {
+    return this.request(`/duty/${dutyId}`, {
+      method: 'DELETE'
+    });
+  },
+  resetDuties() {
+    return this.request('/duty/reset-all', {
+      method: 'POST'
+    });
+  },
+
+  // Module 8: Exam-Day Incident Management (UFM)
+  getIncidents(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/incidents/ufm${query ? `?${query}` : ''}`);
+  },
+  getIncident(id) {
+    return this.request(`/incidents/ufm/${id}`);
+  },
+  submitIncident(data) {
+    return this.request('/incidents/ufm', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  updateIncidentAction(id, actionData) {
+    return this.request(`/incidents/ufm/${id}/action`, {
+      method: 'PUT',
+      body: JSON.stringify(actionData)
+    });
+  },
+  getIncidentStats() {
+    return this.request('/incidents/stats');
+  },
+  deleteIncident(id) {
+    return this.request(`/incidents/ufm/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
