@@ -16,6 +16,7 @@ const dutyRoutes = require('./routes/dutyRoutes');             // Module 5: Facu
 const invigilatorRoutes = require('./routes/invigilatorRoutes'); // Module 7: Invigilator Portal & Attendance
 const incidentRoutes = require('./routes/incidentRoutes');     // Module 8: Exam-Day Incident Management
 const facultyPortalRoutes = require('./routes/facultyPortalRoutes'); // Module 6: Faculty Portal & Doubt Resolution
+const analyticsRoutes = require('./routes/analyticsRoutes');       // Module 10: Analytics & Reports
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.use('/api/faculty', facultyPortalRoutes);        // Module 6: Alias
 app.use('/api/doubts', facultyPortalRoutes);         // Module 6: Alias
 app.use('/api/invigilator', invigilatorRoutes); // Module 7: Invigilator Portal & Attendance
 app.use('/api/incidents', incidentRoutes);    // Module 8: Exam-Day Incident Management
+app.use('/api/analytics', analyticsRoutes);   // Module 10: Analytics & Reports
 
 
 // 404 Handler

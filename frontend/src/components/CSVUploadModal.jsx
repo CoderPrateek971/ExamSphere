@@ -11,21 +11,30 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
 
   if (!isOpen) return null;
 
+  const isAllowedFile = (fileName) => {
+    const lower = fileName.toLowerCase();
+    return lower.endsWith('.csv') || lower.endsWith('.xlsx') || lower.endsWith('.xls');
+  };
+
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-      if (!selected.name.endsWith('.csv')) {
-        setError('Only .csv files are supported.');
+      setFile(selected);
+      setResult(null);
+      if (!isAllowedFile(selected.name)) {
+        setError('Only CSV files (.csv) or Excel (.xlsx) are allowed');
         return;
       }
-      setFile(selected);
       setError(null);
-      setResult(null);
     }
   };
 
   const handleUpload = async () => {
     if (!file) return;
+    if (!isAllowedFile(file.name)) {
+      setError('Only CSV files (.csv) or Excel (.xlsx) are allowed');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -33,7 +42,7 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
       setResult(res.summary);
       onUploadSuccess();
     } catch (err) {
-      setError(err.message || 'CSV upload failed');
+      setError(err.message || 'File ingestion failed');
     } finally {
       setLoading(false);
     }
@@ -44,9 +53,9 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
       <div className="modal-content">
         <div className="modal-header">
           <div>
-            <h3>Bulk CSV Ingestion</h3>
+            <h3>Bulk Master Data Ingestion</h3>
             <p style={{ fontSize: '0.82rem', color: '#9ca3af' }}>
-              Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong>
+              Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong> (.csv or .xlsx)
             </p>
           </div>
           <button className="close-btn" onClick={onClose}><X size={20} /></button>
@@ -85,15 +94,14 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
             >
               <UploadCloud size={40} color="#6366f1" style={{ margin: '0 auto 0.75rem auto' }} />
               <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                {file ? file.name : 'Click to select CSV file'}
+                {file ? file.name : 'Click to select CSV or Excel (.xlsx) file'}
               </div>
               <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '0.3rem' }}>
-                {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Supports standard UTF-8 .csv files'}
+                {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Supports UTF-8 .csv, .xlsx, and .xls spreadsheets'}
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
@@ -106,7 +114,7 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
                 disabled={!file || loading}
                 onClick={handleUpload}
               >
-                {loading ? 'Processing CSV...' : 'Ingest to MySQL'}
+                {loading ? 'Processing file...' : 'Ingest to MySQL'}
               </button>
             </div>
           </>
