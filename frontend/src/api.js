@@ -103,6 +103,18 @@ export const api = {
     });
   },
 
+  seedBmuExamData() {
+    return this.request('/master-data/seed-bmu-data', {
+      method: 'POST',
+    });
+  },
+
+  resetDatabase() {
+    return this.request('/master-data/reset-database', {
+      method: 'POST',
+    });
+  },
+
   // Admin & Audit
   getSystemSummary() {
     return this.request('/admin/system-summary');

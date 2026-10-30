@@ -5,27 +5,6 @@ import {
   Trash2, UserCheck, ShieldAlert, CheckCircle2, UserX, AlertCircle 
 } from 'lucide-react';
 
-const MOCK_ROSTER_FALLBACK = [
-  { id: 101, exam_name: 'CSE3005 Software Engineering End-Term', course_code: 'CSE3005', exam_date: '2026-11-20', start_time: '09:30:00', end_time: '12:30:00', duration_minutes: 180, room_number: 'E2-101', room_capacity: 30, faculty_name: 'Dr. Harsh Taneja', faculty_code: 'FAC103', faculty_department: 'ECE', course_department: 'CSE', designation: 'Associate Professor', seniority_level: 2, status: 'ASSIGNED' },
-  { id: 102, exam_name: 'CSE3002 Database Systems Final Exam', course_code: 'CSE3002', exam_date: '2026-11-22', start_time: '09:30:00', end_time: '12:30:00', duration_minutes: 180, room_number: 'AUD-HALL', room_capacity: 80, faculty_name: 'Dr. Shilpa Mahajan', faculty_code: 'FAC101', faculty_department: 'CSE', course_department: 'CSE', designation: 'Associate Professor', seniority_level: 2, status: 'ASSIGNED' },
-  { id: 103, exam_name: 'ECE2001 Digital Electronics Mid-Term', course_code: 'ECE2001', exam_date: '2026-11-24', start_time: '14:00:00', end_time: '17:00:00', duration_minutes: 180, room_number: 'E2-201', room_capacity: 40, faculty_name: 'Dr. Sukhandeep Kaur', faculty_code: 'FAC104', faculty_department: 'ME', course_department: 'ECE', designation: 'Assistant Professor', seniority_level: 1, status: 'ASSIGNED' },
-  { id: 104, exam_name: 'ME1001 Thermodynamics End-Term', course_code: 'ME1001', exam_date: '2026-11-26', start_time: '09:30:00', end_time: '12:30:00', duration_minutes: 180, room_number: 'E2-102', room_capacity: 30, faculty_name: 'Dr. Nishtha Phutela', faculty_code: 'FAC102', faculty_department: 'CSE', course_department: 'ME', designation: 'Assistant Professor', seniority_level: 1, status: 'ASSIGNED' }
-];
-
-const MOCK_WORKLOAD_FALLBACK = {
-  totalFaculty: 4,
-  totalAssignedDuties: 4,
-  averageDuties: 1.0,
-  stdDev: 0.0,
-  fairnessIndex: 100,
-  facultyList: [
-    { id: 1, name: 'Dr. Shilpa Mahajan', faculty_code: 'FAC101', department: 'CSE', designation: 'Associate Professor', seniority_level: 2, max_duties: 4, assigned_duties: 1, remaining_duties: 3, workload_pct: 25 },
-    { id: 2, name: 'Dr. Nishtha Phutela', faculty_code: 'FAC102', department: 'CSE', designation: 'Assistant Professor', seniority_level: 1, max_duties: 5, assigned_duties: 1, remaining_duties: 4, workload_pct: 20 },
-    { id: 3, name: 'Dr. Harsh Taneja', faculty_code: 'FAC103', department: 'ECE', designation: 'Associate Professor', seniority_level: 2, max_duties: 4, assigned_duties: 1, remaining_duties: 3, workload_pct: 25 },
-    { id: 4, name: 'Dr. Sukhandeep Kaur', faculty_code: 'FAC104', department: 'ME', designation: 'Assistant Professor', seniority_level: 1, max_duties: 5, assigned_duties: 1, remaining_duties: 4, workload_pct: 20 }
-  ]
-};
-
 export default function WorkloadBalancerView() {
   const [roster, setRoster] = useState([]);
   const [workload, setWorkload] = useState(null);
@@ -50,18 +29,14 @@ export default function WorkloadBalancerView() {
         api.getEntities('faculty').catch(() => ({ data: [] }))
       ]);
 
-      const liveRoster = rosterRes.data && rosterRes.data.length > 0 ? rosterRes.data : MOCK_ROSTER_FALLBACK;
-      const liveWorkload = workloadRes.data && workloadRes.data.facultyList && workloadRes.data.facultyList.length > 0 ? workloadRes.data : MOCK_WORKLOAD_FALLBACK;
-      const liveFaculty = facultyRes.data && facultyRes.data.length > 0 ? facultyRes.data : MOCK_WORKLOAD_FALLBACK.facultyList;
-
-      setRoster(liveRoster);
-      setWorkload(liveWorkload);
-      setFacultyList(liveFaculty);
+      setRoster(rosterRes.data || []);
+      setWorkload(workloadRes.data || null);
+      setFacultyList(facultyRes.data || []);
     } catch (err) {
-      console.warn('Using workload fallback data:', err.message);
-      setRoster(MOCK_ROSTER_FALLBACK);
-      setWorkload(MOCK_WORKLOAD_FALLBACK);
-      setFacultyList(MOCK_WORKLOAD_FALLBACK.facultyList);
+      console.warn('Failed to load workload data:', err.message);
+      setRoster([]);
+      setWorkload(null);
+      setFacultyList([]);
     } finally {
       setLoading(false);
     }

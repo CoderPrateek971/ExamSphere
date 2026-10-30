@@ -15,28 +15,33 @@ import AdminAttendanceView from './components/AdminAttendanceView';
 import AnalyticsReportsView from './components/AnalyticsReportsView';
 import LoginModal from './components/LoginModal';
 import { api } from './api';
-import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera, Calendar, HelpCircle, BarChart3 } from 'lucide-react';
+import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera, Calendar, HelpCircle, ArrowRight, CheckCircle2, BarChart3 } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [switchTargetRole, setSwitchTargetRole] = useState(null);
-  const [activeTab, setActiveTab] = useState('incident-management');
+  const [activeTab, setActiveTab] = useState('master-data');
   const [facultyTab, setFacultyTab] = useState('invigilation');
-  const [stats, setStats] = useState({ students: 142, faculty: 18, courses: 14, rooms: 8, exams: 6 });
+  const [stats, setStats] = useState({
+    students: 0,
+    faculty: 0,
+    courses: 0,
+    rooms: 0,
+    exams: 0,
+    seatingCount: 0,
+    dutyCount: 0,
+    incidentCount: 0
+  });
 
   const loadStats = async () => {
     try {
       const res = await api.getSystemSummary();
-      if (res.data && Object.values(res.data).some(v => Number(v) > 0)) {
+      if (res.data) {
         setStats(res.data);
-      } else {
-        // Fallback realistic metrics so the dashboard cards are immediately active
-        setStats({ students: 142, faculty: 18, courses: 14, rooms: 8, exams: 6 });
       }
     } catch (err) {
-      console.log('Stats fetch note, using fallback stats:', err.message);
-      setStats({ students: 142, faculty: 18, courses: 14, rooms: 8, exams: 6 });
+      console.log('Stats fetch note:', err.message);
     }
   };
 
@@ -49,7 +54,7 @@ export default function App() {
         loadStats();
       }
     } else {
-      // Default to demo admin session for instant out-of-the-box exploration
+      // Default to admin session for instant out-of-the-box exploration
       const initialUser = {
         id: 1,
         name: 'Exam Controller Admin',
@@ -71,7 +76,7 @@ export default function App() {
     if (loggedInUser.role === 'ADMIN') {
       loadStats();
     }
-    setActiveTab(loggedInUser.role === 'ADMIN' ? 'incident-management' : 'doubts');
+    setActiveTab(loggedInUser.role === 'ADMIN' ? 'master-data' : 'doubts');
     setFacultyTab('doubts');
   };
 
@@ -236,7 +241,17 @@ export default function App() {
     );
   }
 
-  // 3. ADMINISTRATOR CONTROL PANEL: All administrator modules
+  // Workflow steps definition
+  const WORKFLOW_STEPS = [
+    { id: 'master-data', label: '1. Master Data', count: stats.courses > 0 ? `${stats.courses} Crs` : 'Empty', icon: Database },
+    { id: 'scheduling', label: '2. Scheduling', count: stats.exams > 0 ? `${stats.exams} Exams` : 'Pending', icon: Calendar },
+    { id: 'seating', label: '3. Seating', count: (stats.seatingCount || 0) > 0 ? `${stats.seatingCount} Placed` : 'Ready', icon: Grid },
+    { id: 'duty-management', label: '4. Faculty Duty', count: (stats.dutyCount || 0) > 0 ? `${stats.dutyCount} Duties` : 'Roster', icon: Users },
+    { id: 'attendance', label: '5. Attendance', count: 'Live Hall', icon: Camera },
+    { id: 'incident-management', label: '6. Cheating (UFM)', count: (stats.incidentCount || 0) > 0 ? `${stats.incidentCount} Cases` : 'Reports', icon: FileText }
+  ];
+
+  // 3. ADMINISTRATOR CONTROL PANEL: All administrator modules in end-to-end lifecycle order
   return (
     <div className="app-shell">
       <Navbar
@@ -254,60 +269,122 @@ export default function App() {
       <main className="main-content">
         <StatsGrid stats={stats} />
 
-        {/* Primary Admin Navigation Tabs */}
+        {/* Global End-to-End Workflow Pipeline Tracker */}
+        <div style={{
+          background: 'rgba(15, 23, 42, 0.75)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px',
+          padding: '0.65rem 1rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          overflowX: 'auto',
+          gap: '0.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 'max-content' }}>
+            <span style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', fontWeight: 700, marginRight: '0.5rem' }}>
+              Exam Lifecycle Pipeline:
+            </span>
+
+            {WORKFLOW_STEPS.map((step, idx) => {
+              const StepIcon = step.icon;
+              const isActive = activeTab === step.id;
+              return (
+                <React.Fragment key={step.id}>
+                  <button
+                    onClick={() => setActiveTab(step.id)}
+                    style={{
+                      background: isActive ? 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(6,182,212,0.25))' : 'rgba(255,255,255,0.03)',
+                      border: isActive ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      padding: '0.4rem 0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      cursor: 'pointer',
+                      color: isActive ? '#fff' : '#9ca3af',
+                      fontSize: '0.8rem',
+                      fontWeight: isActive ? 700 : 500,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <StepIcon size={14} color={isActive ? '#818cf8' : '#6b7280'} />
+                    <span>{step.label}</span>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '4px',
+                      background: isActive ? '#6366f1' : 'rgba(255,255,255,0.08)',
+                      color: isActive ? '#fff' : '#d1d5db'
+                    }}>
+                      {step.count}
+                    </span>
+                  </button>
+
+                  {idx < WORKFLOW_STEPS.length - 1 && (
+                    <ArrowRight size={13} color="rgba(255,255,255,0.25)" />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Primary Admin Navigation Tabs in Sequential Lifecycle Order */}
         <div className="nav-tabs">
-          {/* Module 8: Exam-Day Incident Management */}
-          <button
-            className={`tab-btn ${activeTab === 'incident-management' ? 'active' : ''}`}
-            onClick={() => setActiveTab('incident-management')}
-          >
-            <FileText size={16} />
-            <span>Exam Cheating Records & Details</span>
-          </button>
-
-          {/* Module 5: Faculty Duty & Workload Management */}
-          <button
-            className={`tab-btn ${activeTab === 'duty-management' ? 'active' : ''}`}
-            onClick={() => setActiveTab('duty-management')}
-          >
-            <Users size={16} />
-            <span>Faculty Duty & Workload Management</span>
-          </button>
-
-          {/* Module 2: Resource & Data Management */}
+          {/* Step 1: Master Data */}
           <button
             className={`tab-btn ${activeTab === 'master-data' ? 'active' : ''}`}
             onClick={() => setActiveTab('master-data')}
           >
             <Database size={16} />
-            <span>Resource & Data Management</span>
+            <span>Step 1: Resource & Master Data</span>
           </button>
 
-          {/* Module 3: Exam Scheduling & Timetable */}
+          {/* Step 2: Exam Scheduling & Timetable */}
           <button
             className={`tab-btn ${activeTab === 'scheduling' ? 'active' : ''}`}
             onClick={() => setActiveTab('scheduling')}
           >
             <Calendar size={16} />
-            <span>Exam Scheduling (Module 3)</span>
+            <span>Step 2: Exam Scheduling (Timetable)</span>
           </button>
 
-          {/* Module 4: Smart Room & Seating Allocation */}
+          {/* Step 3: Smart Room & Seating Allocation */}
           <button
             className={`tab-btn ${activeTab === 'seating' ? 'active' : ''}`}
             onClick={() => setActiveTab('seating')}
           >
             <Grid size={16} />
-            <span>Smart Seating Allocation</span>
+            <span>Step 3: Smart Seating Allocation</span>
           </button>
 
-          {/* Module 7: Exam Attendance & Photos */}
+          {/* Step 4: Faculty Duty & Workload Management */}
+          <button
+            className={`tab-btn ${activeTab === 'duty-management' ? 'active' : ''}`}
+            onClick={() => setActiveTab('duty-management')}
+          >
+            <Users size={16} />
+            <span>Step 4: Faculty Duty & Workload</span>
+          </button>
+
+          {/* Step 5: Exam Attendance & Photos */}
           <button
             className={`tab-btn ${activeTab === 'attendance' ? 'active' : ''}`}
             onClick={() => setActiveTab('attendance')}
           >
             <Camera size={16} />
-            <span>Exam Attendance & Photos (Module 7)</span>
+            <span>Step 5: Exam Attendance & Photos</span>
+          </button>
+
+          {/* Step 6: Exam-Day Incident Management */}
+          <button
+            className={`tab-btn ${activeTab === 'incident-management' ? 'active' : ''}`}
+            onClick={() => setActiveTab('incident-management')}
+          >
+            <FileText size={16} />
+            <span>Step 6: Cheating & Incidents (UFM)</span>
           </button>
 
           {/* Module 10: Analytics & Reports */}
@@ -338,29 +415,48 @@ export default function App() {
           </button>
         </div>
 
-        {/* Tab Views */}
-        {activeTab === 'incident-management' && (
-          <ExamIncidentManagementView user={user} />
-        )}
-
-        {activeTab === 'duty-management' && (
-          <FacultyDutyWorkloadView user={user} />
-        )}
-
+        {/* Dynamic Tab Views with Integrated Inter-Page Workflow Handlers */}
         {activeTab === 'master-data' && (
-          <MasterDataView user={user} onDataChange={loadStats} />
+          <MasterDataView 
+            user={user} 
+            onDataChange={loadStats} 
+            onNavigateToStep={setActiveTab} 
+          />
         )}
 
         {activeTab === 'scheduling' && (
-          <ExamSchedulingView user={user} />
+          <ExamSchedulingView 
+            user={user} 
+            onNavigateToStep={setActiveTab} 
+          />
         )}
 
         {activeTab === 'seating' && (
-          <SeatingAllocationView user={user} />
+          <SeatingAllocationView 
+            user={user} 
+            onNavigateToStep={setActiveTab} 
+          />
+        )}
+
+        {activeTab === 'duty-management' && (
+          <FacultyDutyWorkloadView 
+            user={user} 
+            onNavigateToStep={setActiveTab} 
+          />
         )}
 
         {activeTab === 'attendance' && (
-          <AdminAttendanceView user={user} />
+          <AdminAttendanceView 
+            user={user} 
+            onNavigateToStep={setActiveTab} 
+          />
+        )}
+
+        {activeTab === 'incident-management' && (
+          <ExamIncidentManagementView 
+            user={user} 
+            onNavigateToStep={setActiveTab} 
+          />
         )}
 
         {activeTab === 'analytics' && (

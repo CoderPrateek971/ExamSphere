@@ -3,15 +3,6 @@ import { Mail, Send, X, AlertCircle, CheckCircle2, Settings, ExternalLink, Spark
 import emailjs from '@emailjs/browser';
 import { api } from '../../api';
 
-const SAMPLE_FACULTY_EMAILS = [
-  { email: 'nishtha.gupta.24cse@bmu.edu.in', name: 'Prof. Nishtha Gupta', dept: 'CSE' },
-  { email: 'prateek.garg.24cse@bmu.edu.in', name: 'Prof. Prateek Garg', dept: 'CSE' },
-  { email: 'riwan.bhati.24cse@bmu.edu.in', name: 'Prof. Riwan Bhati', dept: 'CSE' },
-  { email: 'nischay.mehta.24cse@bmu.edu.in', name: 'Prof. Nischay Mehta', dept: 'CSE' }
-];
-
-const ROOM_OPTIONS = ['E2-101', 'E2-102', 'E2-201', 'AUD-HALL'];
-
 export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
   // Do not select any option by default; start with empty fields
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -19,6 +10,9 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
   const [examName, setExamName] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  
+  const [facultyList, setFacultyList] = useState([]);
+  const [roomList, setRoomList] = useState([]);
   
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -32,7 +26,7 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
     } catch (e) {}
     return {
       serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
-      templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || '',
+      templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'pnv9y1p',
       publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || ''
     };
   });
@@ -45,7 +39,7 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
     emailJsConfig.publicKey?.trim()
   );
 
-  // Clear form selections every time modal opens
+  // Clear form selections and fetch real records every time modal opens
   useEffect(() => {
     if (isOpen) {
       setRecipientEmail('');
@@ -55,6 +49,14 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
       setMessage('');
       setError(null);
       setDeliveryResult(null);
+
+      api.getEntities('faculty')
+        .then(res => setFacultyList(Array.isArray(res.data) ? res.data : []))
+        .catch(() => setFacultyList([]));
+        
+      api.getEntities('rooms')
+        .then(res => setRoomList(Array.isArray(res.data) ? res.data : []))
+        .catch(() => setRoomList([]));
     }
   }, [isOpen]);
 
@@ -101,13 +103,21 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
       if (isEmailJsReady) {
         try {
           const templateParams = {
+            // Direct matches to EmailJS Template variables ({{title}}, {{name}}, {{time}}, {{message}}, {{to_email}}, {{from_name}}, {{from_email}})
+            title: emailSubject,
+            name: recipientEmail.split('@')[0],
+            time: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+            message: emailBody,
             to_email: recipientEmail.trim(),
             recipient_email: recipientEmail.trim(),
+            from_name: 'ExamSphere Controller Admin',
+            from_email: 'admin@examsphere.edu',
+
+            // Domain aliases
             to_name: recipientEmail.split('@')[0],
             room_number: roomNumber.trim(),
             exam_name: examName.trim() || 'Scheduled Examination',
-            subject: emailSubject,
-            message: emailBody
+            subject: emailSubject
           };
 
           await emailjs.send(
@@ -429,37 +439,39 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
           )}
 
           <form onSubmit={handleSubmit}>
-            {/* Quick-Pick Sample Faculty Emails (No Default Selection) */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>
-                Quick-Select Testing Faculty Email:
-              </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {SAMPLE_FACULTY_EMAILS.map((s) => {
-                  const isSelected = Boolean(recipientEmail) && recipientEmail.toLowerCase() === s.email.toLowerCase();
-                  return (
-                    <button
-                      key={s.email}
-                      type="button"
-                      onClick={() => handleSelectSample(s)}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        fontSize: '0.78rem',
-                        borderRadius: '20px',
-                        border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-color, #334155)',
-                        background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(30, 41, 59, 0.7)',
-                        color: isSelected ? '#38bdf8' : '#cbd5e1',
-                        cursor: 'pointer',
-                        fontWeight: isSelected ? 700 : 500,
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {s.name} ({s.email.split('@')[0]})
-                    </button>
-                  );
-                })}
+            {/* Quick-Pick Live Faculty Emails */}
+            {facultyList.length > 0 && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>
+                  Quick-Select Registered Faculty / Scholar:
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', maxHeight: '110px', overflowY: 'auto' }}>
+                  {facultyList.slice(0, 10).map((s) => {
+                    const isSelected = Boolean(recipientEmail) && recipientEmail.toLowerCase() === s.email?.toLowerCase();
+                    return (
+                      <button
+                        key={s.id || s.email}
+                        type="button"
+                        onClick={() => handleSelectSample(s)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          fontSize: '0.78rem',
+                          borderRadius: '20px',
+                          border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-color, #334155)',
+                          background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(30, 41, 59, 0.7)',
+                          color: isSelected ? '#38bdf8' : '#cbd5e1',
+                          cursor: 'pointer',
+                          fontWeight: isSelected ? 700 : 500,
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {s.name} ({s.email ? s.email.split('@')[0] : s.department})
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Recipient Email Input */}
             <div style={{ marginBottom: '1.25rem' }}>
@@ -470,7 +482,7 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
                 type="email"
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="Select quick-pick above or enter faculty email"
+                placeholder="Select registered faculty above or enter email"
                 required
                 style={{
                   width: '100%',
@@ -484,41 +496,43 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
               />
             </div>
 
-            {/* Required Room Number Selection (No Default Selection) */}
+            {/* Required Room Number Selection */}
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.4rem' }}>
                 Required Room to Visit <span style={{ color: '#ef4444' }}>*</span>
               </label>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                {ROOM_OPTIONS.map((r) => {
-                  const isRoomSelected = Boolean(roomNumber) && roomNumber === r;
-                  return (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => handleSelectRoom(r)}
-                      style={{
-                        flex: 1,
-                        padding: '0.5rem',
-                        fontSize: '0.85rem',
-                        fontWeight: 700,
-                        borderRadius: '8px',
-                        border: isRoomSelected ? '2px solid #ef4444' : '1px solid var(--border-color, #334155)',
-                        background: isRoomSelected ? 'rgba(239, 68, 68, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                        color: isRoomSelected ? '#fca5a5' : '#cbd5e1',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Room {r}
-                    </button>
-                  );
-                })}
-              </div>
+              {roomList.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                  {roomList.slice(0, 8).map((r) => {
+                    const rNum = r.room_number;
+                    const isRoomSelected = Boolean(roomNumber) && roomNumber === rNum;
+                    return (
+                      <button
+                        key={r.id || rNum}
+                        type="button"
+                        onClick={() => handleSelectRoom(rNum)}
+                        style={{
+                          padding: '0.4rem 0.75rem',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          border: isRoomSelected ? '2px solid #ef4444' : '1px solid var(--border-color, #334155)',
+                          background: isRoomSelected ? 'rgba(239, 68, 68, 0.2)' : 'rgba(30, 41, 59, 0.5)',
+                          color: isRoomSelected ? '#fca5a5' : '#cbd5e1',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {rNum}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <input
                 type="text"
                 value={roomNumber}
                 onChange={(e) => setRoomNumber(e.target.value)}
-                placeholder="Select room above or enter custom room (e.g. E2-101)"
+                placeholder="Select room above or enter room number (e.g. NB214, GA205)"
                 required
                 style={{
                   width: '100%',

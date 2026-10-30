@@ -4,8 +4,9 @@ import {
   Users, Scale, Calendar, Clock, RefreshCw, 
   Trash2, UserCheck, CheckCircle2, UserX, AlertCircle, Plus, 
   Search, ShieldAlert, ArrowRight, RotateCcw, Info, Sun, Moon, Sunrise,
-  History, FileText, UserMinus
+  History, FileText, UserMinus, Mail
 } from 'lucide-react';
+import EmailDutyModal from './EmailDutyModal';
 
 // =====================================================================
 // UTILITY FUNCTIONS: TIME CONVERSION & OVERLAP CHECKING
@@ -78,30 +79,6 @@ export const formatDateReadable = (d) => {
     return String(d);
   }
 };
-
-// =====================================================================
-// DEFAULT DATA POOLS (Faculty, Exams, and Rooms available for assignment)
-// =====================================================================
-const DEFAULT_FACULTY = [
-  { id: 1, name: 'Dr. Shilpa Mahajan', faculty_code: 'FAC101', department: 'CSE', designation: 'Associate Professor', max_duties: 4 },
-  { id: 2, name: 'Dr. Nishtha Phutela', faculty_code: 'FAC102', department: 'CSE', designation: 'Assistant Professor', max_duties: 5 },
-  { id: 3, name: 'Dr. Harsh Taneja', faculty_code: 'FAC103', department: 'ECE', designation: 'Associate Professor', max_duties: 4 },
-  { id: 4, name: 'Dr. Sukhandeep Kaur', faculty_code: 'FAC104', department: 'ME', designation: 'Assistant Professor', max_duties: 5 }
-];
-
-const DEFAULT_EXAMS = [
-  { id: 1, exam_name: 'CSE3005 Software Engineering End-Term', course_code: 'CSE3005', exam_date: '2026-11-20', start_time: '09:30:00', end_time: '12:30:00' },
-  { id: 2, exam_name: 'CSE3002 Database Management Systems Final', course_code: 'CSE3002', exam_date: '2026-11-22', start_time: '09:30:00', end_time: '12:30:00' },
-  { id: 3, exam_name: 'ECE2001 Digital Electronics Mid-Term', course_code: 'ECE2001', exam_date: '2026-11-24', start_time: '14:00:00', end_time: '17:00:00' },
-  { id: 4, exam_name: 'ME1001 Thermodynamics End-Term', course_code: 'ME1001', exam_date: '2026-11-26', start_time: '09:30:00', end_time: '12:30:00' }
-];
-
-const DEFAULT_ROOMS = [
-  { id: 1, room_number: 'E2-101', capacity: 30, building: 'E2 Block' },
-  { id: 2, room_number: 'E2-102', capacity: 30, building: 'E2 Block' },
-  { id: 3, room_number: 'E2-201', capacity: 40, building: 'E2 Block' },
-  { id: 4, room_number: 'AUD-HALL', capacity: 80, building: 'Main Auditorium' }
-];
 
 // =====================================================================
 // VISUAL COMPONENT: DAY SCHEDULE TIMELINE (08:00 AM to 08:00 PM)
@@ -226,16 +203,23 @@ function DayScheduleTimeline({ todayDuties = [], queryStart, queryEnd }) {
   );
 }
 
-export default function FacultyDutyWorkloadView() {
+export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
   const [activeTab, setActiveTab] = useState('roster'); // 'roster' | 'availability' | 'balancing'
   
-  // Data State - Starts completely clean (0 duties initially so user can do all actions themselves!)
+  // Data State - Dynamically loaded from real master data and scheduled exams
   const [roster, setRoster] = useState([]);
-  const [facultyList, setFacultyList] = useState(DEFAULT_FACULTY);
-  const [exams, setExams] = useState(DEFAULT_EXAMS);
-  const [rooms, setRooms] = useState(DEFAULT_ROOMS);
+  const [facultyList, setFacultyList] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // EmailJS Duty Dispatch Modal State
+  const [emailModalDuty, setEmailModalDuty] = useState(null);
+
+  const handleEmailSent = (dutyId) => {
+    setRoster(prev => prev.map(d => d.id === dutyId ? { ...d, emailed: true } : d));
+  };
 
   // Search & Filter state for Roster
   const [rosterSearch, setRosterSearch] = useState('');
@@ -342,11 +326,20 @@ export default function FacultyDutyWorkloadView() {
   const querySlotStart = timeToMinutes(availParams.start_time);
   const querySlotEnd = timeToMinutes(availParams.end_time);
 
-  // Compute live statistics dynamically:
+  // Compute live statistics dynamically (deduplicating by faculty name to avoid duplicate options):
+  const uniqueFacultyMap = new Map();
+  for (const f of facultyList) {
+    const key = String(f.name || '').trim().toLowerCase();
+    if (!uniqueFacultyMap.has(key)) {
+      uniqueFacultyMap.set(key, f);
+    }
+  }
+  const uniqueFacultyList = Array.from(uniqueFacultyMap.values());
+
   // 1. Per-day duty count: resets to 0/4 on a new day!
   // 2. Real-time active in-duty vs completed duties vs upcoming duties!
   // 3. Excludes teachers who are on leave!
-  const facultyWithStats = facultyList.map(f => {
+  const facultyWithStats = uniqueFacultyList.map(f => {
     const isOnLeave = Boolean(facultyLeaveMap[f.id]);
     const max = Number(f.max_duties) || 4;
 
@@ -437,9 +430,9 @@ export default function FacultyDutyWorkloadView() {
   // Interactive Live Scenario Demonstration Handler
   const handleRunDemoScenario = (scenarioType) => {
     if (scenarioType === 'assign_morning') {
-      const teacher = facultyWithStats[0] || DEFAULT_FACULTY[0];
-      const room = rooms[0] || DEFAULT_ROOMS[0];
-      const exam = exams[0] || DEFAULT_EXAMS[0];
+      const teacher = facultyWithStats[0] || { id: 1, name: 'Faculty Member', department: 'CSE' };
+      const room = rooms[0] || { id: 1, room_number: 'Room 101' };
+      const exam = exams[0] || { id: 1, exam_name: 'Mid-Term Exam', course_code: 'CSE101' };
 
       const newDuty = {
         id: Date.now(),
@@ -790,6 +783,62 @@ export default function FacultyDutyWorkloadView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Workflow Navigation Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(245,158,11,0.12))',
+        border: '1px solid rgba(16,185,129,0.25)',
+        borderRadius: '10px',
+        padding: '0.85rem 1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{
+            background: '#10b981',
+            color: '#000',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 800
+          }}>4</span>
+          <div>
+            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 4: Faculty Duty & Workload Management</strong>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
+              {facultyList.length} faculty/staff registered. Allocate invigilators to exam rooms using fairness balancing & capacity limits. Duties feed directly into Step 5 (Invigilator Attendance).
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => onNavigateToStep('seating')}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <span>⬅️ Back to Step 3: Seating</span>
+            </button>
+          )}
+
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => onNavigateToStep('attendance')}
+              style={{ fontWeight: 600 }}
+            >
+              <span>Proceed to Step 5: Live Attendance</span>
+              <ArrowRight size={15} />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Summary KPI Cards */}
       <div style={{
@@ -1211,7 +1260,23 @@ export default function FacultyDutyWorkloadView() {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button 
+                              className="btn btn-secondary"
+                              style={{ 
+                                padding: '0.35rem 0.65rem', 
+                                fontSize: '0.74rem', 
+                                color: duty.emailed ? '#34d399' : '#38bdf8', 
+                                borderColor: duty.emailed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)',
+                                background: duty.emailed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(56, 189, 248, 0.08)'
+                              }}
+                              onClick={() => setEmailModalDuty(duty)}
+                              title="Send automated duty email to teacher via EmailJS"
+                            >
+                              <Mail size={13} />
+                              <span>{duty.emailed ? 'Emailed' : 'Email Duty'}</span>
+                            </button>
+
                             <button 
                               className="btn btn-secondary"
                               style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
@@ -2200,6 +2265,15 @@ export default function FacultyDutyWorkloadView() {
           </div>
         </div>
       )}
+
+      {/* EmailJS Duty Dispatch Modal */}
+      <EmailDutyModal
+        isOpen={Boolean(emailModalDuty)}
+        duty={emailModalDuty}
+        user={user}
+        onClose={() => setEmailModalDuty(null)}
+        onEmailSent={handleEmailSent}
+      />
 
     </div>
   );
