@@ -26,13 +26,12 @@ class AnalyticsService {
         r.id,
         r.room_number,
         r.building,
-        r.floor,
         r.capacity,
         COALESCE(COUNT(sa.id), 0) AS allocated_seats,
         ROUND((COALESCE(COUNT(sa.id), 0) / r.capacity) * 100, 1) AS utilization_percentage
       FROM rooms r
       LEFT JOIN seat_allocations sa ON r.id = sa.room_id
-      GROUP BY r.id, r.room_number, r.building, r.floor, r.capacity
+      GROUP BY r.id, r.room_number, r.building, r.capacity
       ORDER BY r.room_number ASC
     `);
 
@@ -49,7 +48,6 @@ class AnalyticsService {
         id: r.id,
         roomNumber: r.room_number,
         building: r.building,
-        floor: r.floor,
         capacity: Number(r.capacity),
         allocatedSeats: Number(r.allocated_seats),
         utilizationPercentage: Number(r.utilization_percentage)

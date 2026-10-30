@@ -27,7 +27,6 @@ export default function FacultyTable({ data, loading, onDelete }) {
           <th>Email Address</th>
           <th>Department</th>
           <th>Designation</th>
-          <th>Seniority</th>
           <th>Max Duties</th>
           <th>Actions</th>
         </tr>
@@ -40,7 +39,6 @@ export default function FacultyTable({ data, loading, onDelete }) {
             <td>{item.email}</td>
             <td>{item.department}</td>
             <td>{item.designation}</td>
-            <td>Lvl {item.seniority_level}</td>
             <td>{item.max_duties}</td>
             <td>
               <button

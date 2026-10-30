@@ -1,4 +1,5 @@
 const { query } = require('../config/db');
+const { mapDesignationToSeniority } = require('../utils/designationHelper');
 
 /**
  * Service encapsulating business logic & data operations for Master Entities
@@ -57,17 +58,27 @@ class MasterDataService {
       err.statusCode = 400;
       throw err;
     }
+    const finalDesignation = designation || 'Assistant Professor';
+    const finalSeniority = (seniority_level !== undefined && seniority_level !== null && seniority_level !== '' && !isNaN(parseInt(seniority_level, 10)))
+      ? parseInt(seniority_level, 10)
+      : mapDesignationToSeniority(finalDesignation);
+
     const [result] = await query(
       'INSERT INTO faculty (faculty_code, name, email, department, designation, seniority_level, max_duties) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [faculty_code, name, email, department, designation || 'Assistant Professor', seniority_level || 1, max_duties || 5]
+      [faculty_code, name, email, department, finalDesignation, finalSeniority, max_duties || 5]
     );
     return result.insertId;
   }
 
   async updateFaculty(id, { name, email, department, designation, seniority_level, max_duties }) {
+    const finalDesignation = designation || 'Assistant Professor';
+    const finalSeniority = (seniority_level !== undefined && seniority_level !== null && seniority_level !== '' && !isNaN(parseInt(seniority_level, 10)))
+      ? parseInt(seniority_level, 10)
+      : mapDesignationToSeniority(finalDesignation);
+
     await query(
       'UPDATE faculty SET name = ?, email = ?, department = ?, designation = ?, seniority_level = ?, max_duties = ? WHERE id = ?',
-      [name, email, department, designation, seniority_level, max_duties, id]
+      [name, email, department, finalDesignation, finalSeniority, max_duties, id]
     );
     return true;
   }
@@ -115,7 +126,7 @@ class MasterDataService {
     return rows;
   }
 
-  async createRoom({ room_number, building, floor, capacity, rows_count, cols_count, has_camera }) {
+  async createRoom({ room_number, building, capacity, rows_count, cols_count }) {
     if (!room_number || !building || !capacity) {
       const err = new Error('room_number, building, capacity are required.');
       err.statusCode = 400;
@@ -125,16 +136,16 @@ class MasterDataService {
     const cCount = cols_count || Math.ceil(capacity / rCount);
 
     const [result] = await query(
-      'INSERT INTO rooms (room_number, building, floor, capacity, rows_count, cols_count, has_camera) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [room_number, building, floor || 1, capacity, rCount, cCount, has_camera !== false]
+      'INSERT INTO rooms (room_number, building, capacity, rows_count, cols_count) VALUES (?, ?, ?, ?, ?)',
+      [room_number, building, capacity, rCount, cCount]
     );
     return result.insertId;
   }
 
-  async updateRoom(id, { room_number, building, floor, capacity, rows_count, cols_count, has_camera, is_available }) {
+  async updateRoom(id, { room_number, building, capacity, rows_count, cols_count, is_available }) {
     await query(
-      'UPDATE rooms SET room_number = ?, building = ?, floor = ?, capacity = ?, rows_count = ?, cols_count = ?, has_camera = ?, is_available = ? WHERE id = ?',
-      [room_number, building, floor, capacity, rows_count, cols_count, has_camera, is_available, id]
+      'UPDATE rooms SET room_number = ?, building = ?, capacity = ?, rows_count = ?, cols_count = ?, is_available = ? WHERE id = ?',
+      [room_number, building, capacity, rows_count, cols_count, is_available, id]
     );
     return true;
   }

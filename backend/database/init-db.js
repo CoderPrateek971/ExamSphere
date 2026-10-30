@@ -49,11 +49,11 @@ async function initDatabase() {
 
       // Seed Rooms
       await connection.query(`
-        INSERT IGNORE INTO rooms (room_number, building, floor, capacity, rows_count, cols_count, has_camera) VALUES
-        ('E2-101', 'E2', 1, 30, 5, 6, TRUE),
-        ('E2-102', 'E2', 1, 30, 5, 6, TRUE),
-        ('E2-201', 'E2', 2, 40, 5, 8, TRUE),
-        ('AUD-HALL', 'Main Block', 1, 80, 8, 10, TRUE);
+        INSERT IGNORE INTO rooms (room_number, building, capacity, rows_count, cols_count) VALUES
+        ('E2-101', 'E2', 30, 5, 6),
+        ('E2-102', 'E2', 30, 5, 6),
+        ('E2-201', 'E2', 40, 5, 8),
+        ('AUD-HALL', 'Main Block', 80, 8, 10);
       `);
 
       // Seed Faculty

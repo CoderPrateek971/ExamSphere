@@ -360,7 +360,6 @@ class SeatingService {
         room_id: room.id,
         room_number: room.room_number,
         building: room.building,
-        floor: room.floor,
         capacity: room.capacity,
         rows_count: rows,
         cols_count: cols,
@@ -465,7 +464,7 @@ class SeatingService {
       }
       const roomPlaceholders = room_ids.map(() => '?').join(',');
       const [fetchedRooms] = await query(
-        `SELECT id, room_number, building, floor, capacity, rows_count, cols_count, has_camera
+        `SELECT id, room_number, building, capacity, rows_count, cols_count
          FROM rooms
          WHERE id IN (${roomPlaceholders}) AND is_available = TRUE
          ORDER BY capacity DESC`,
@@ -474,7 +473,7 @@ class SeatingService {
       roomsToUse = fetchedRooms;
     } else {
       const [availableRooms] = await query(
-        `SELECT id, room_number, building, floor, capacity, rows_count, cols_count, has_camera
+        `SELECT id, room_number, building, capacity, rows_count, cols_count
          FROM rooms
          WHERE is_available = TRUE
          ORDER BY capacity DESC, room_number ASC`
@@ -785,7 +784,7 @@ class SeatingService {
     const [allocations] = await query(
       `SELECT sa.id, sa.exam_id, sa.room_id, sa.student_id, sa.row_num, sa.col_num, sa.seat_number,
               s.enrollment_no, s.name AS student_name, s.email AS student_email, s.department, s.semester,
-              r.room_number, r.building, r.floor, r.capacity, r.rows_count, r.cols_count,
+              r.room_number, r.building, r.capacity, r.rows_count, r.cols_count,
               e.exam_name, e.exam_date, e.start_time, e.end_time,
               c.course_code, c.course_name
        FROM seat_allocations sa
@@ -805,7 +804,6 @@ class SeatingService {
           room_id: alloc.room_id,
           room_number: alloc.room_number,
           building: alloc.building,
-          floor: alloc.floor,
           capacity: alloc.capacity,
           rows_count: alloc.rows_count,
           cols_count: alloc.cols_count,

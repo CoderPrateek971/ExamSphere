@@ -28,18 +28,18 @@ async function seedCompleteDemoData() {
 
   // 2. Insert Rooms
   const rooms = [
-    { num: 'E2-101', building: 'Block E', floor: 1, capacity: 30, rows: 5, cols: 6 },
-    { num: 'E2-102', building: 'Block E', floor: 1, capacity: 30, rows: 5, cols: 6 },
-    { num: 'E2-201', building: 'Block E', floor: 2, capacity: 40, rows: 5, cols: 8 },
-    { num: 'AUD-HALL', building: 'Main Block', floor: 1, capacity: 80, rows: 8, cols: 10 }
+    { num: 'E2-101', building: 'Block E', capacity: 30, rows: 5, cols: 6 },
+    { num: 'E2-102', building: 'Block E', capacity: 30, rows: 5, cols: 6 },
+    { num: 'E2-201', building: 'Block E', capacity: 40, rows: 5, cols: 8 },
+    { num: 'AUD-HALL', building: 'Main Block', capacity: 80, rows: 8, cols: 10 }
   ];
 
   for (const r of rooms) {
     await query(
-      `INSERT INTO rooms (room_number, building, floor, capacity, rows_count, cols_count, has_camera, is_available)
-       VALUES (?, ?, ?, ?, ?, ?, TRUE, TRUE)
-       ON DUPLICATE KEY UPDATE capacity = VALUES(capacity), rows_count = VALUES(rows_count), cols_count = VALUES(cols_count), is_available = TRUE`,
-      [r.num, r.building, r.floor, r.capacity, r.rows, r.cols]
+      `INSERT INTO rooms (room_number, building, capacity, rows_count, cols_count, is_available)
+       VALUES (?, ?, ?, ?, ?, TRUE)
+       ON DUPLICATE KEY UPDATE building = VALUES(building), capacity = VALUES(capacity), rows_count = VALUES(rows_count), cols_count = VALUES(cols_count), is_available = TRUE`,
+      [r.num, r.building, r.capacity, r.rows, r.cols]
     );
   }
   console.log('Rooms seeded.');

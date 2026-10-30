@@ -4,6 +4,8 @@ const XLSX = require('xlsx');
 const { query } = require('../config/db');
 const { parseAndValidateSpreadsheet, normalizeRow } = require('../utils/csvParser');
 
+const { mapDesignationToSeniority } = require('../utils/designationHelper');
+
 /**
  * Strategy Pattern: Entity Ingestion Strategies
  * Supports both Excel (.xlsx, .xls) and CSV (.csv) formats with extended attributes.
@@ -12,28 +14,35 @@ const INGESTION_STRATEGIES = {
   students: async (rows) => {
     let count = 0;
     for (const row of rows) {
-      await query(
-        `INSERT INTO students (enrollment_no, unique_id, name, email, department, stream_section, batch_year, semester, program)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-            unique_id = COALESCE(VALUES(unique_id), unique_id),
-            name = VALUES(name), 
-            email = VALUES(email), 
-            department = VALUES(department), 
-            stream_section = COALESCE(VALUES(stream_section), stream_section),
-            semester = VALUES(semester)`,
-        [
-          row.enrollment_no,
-          row.unique_id || null,
-          row.name,
-          row.email,
-          row.department || 'CSE',
-          row.stream_section || null,
-          row.batch_year || '2025',
-          parseInt(row.semester, 10) || 1,
-          row.program || 'B.Tech'
-        ]
+      const [result] = await query(
+        `INSERT INTO students (enrollment_no, name, email, department, semester, program)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), department = VALUES(department), semester = VALUES(semester), program = VALUES(program)`,
+        [row.enrollment_no, row.name, row.email, row.department, parseInt(row.semester, 10) || 1, row.program || 'B.Tech']
       );
+
+      // Resolve student id
+      let studentId = result.insertId;
+      if (!studentId) {
+        const [[existing]] = await query('SELECT id FROM students WHERE enrollment_no = ?', [row.enrollment_no]);
+        if (existing) studentId = existing.id;
+      }
+
+      // Link enrolled subjects into student_courses junction table
+      const enrolledStr = row.enrolled_courses || row.enrolled_subjects || '';
+      if (enrolledStr && studentId) {
+        const courseCodes = enrolledStr.split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+        for (const code of courseCodes) {
+          const [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+          if (course) {
+            await query(
+              'INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)',
+              [studentId, course.id]
+            );
+          }
+        }
+      }
+
       count++;
     }
     return count;
@@ -42,30 +51,17 @@ const INGESTION_STRATEGIES = {
   faculty: async (rows) => {
     let count = 0;
     for (const row of rows) {
-      const cat = row.staff_category || 
-        (String(row.name || '').includes('(RS)') ? 'PHD_SCHOLAR' : 'FACULTY');
+      const designation = row.designation || 'Assistant Professor';
+      // Automatically derive seniority level from designation if not explicitly provided
+      const seniorityLevel = (row.seniority_level !== undefined && row.seniority_level !== null && row.seniority_level !== '' && !isNaN(parseInt(row.seniority_level, 10)))
+        ? parseInt(row.seniority_level, 10)
+        : mapDesignationToSeniority(designation);
 
       await query(
-        `INSERT INTO faculty (faculty_code, name, email, contact_number, department, designation, staff_category, seniority_level, max_duties)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-            name = VALUES(name), 
-            email = VALUES(email), 
-            contact_number = COALESCE(VALUES(contact_number), contact_number),
-            department = VALUES(department), 
-            designation = VALUES(designation),
-            staff_category = VALUES(staff_category)`,
-        [
-          row.faculty_code,
-          row.name,
-          row.email,
-          row.contact_number || null,
-          row.department || 'SOET',
-          row.designation || 'Assistant Professor',
-          cat,
-          parseInt(row.seniority_level, 10) || (cat === 'FACULTY' ? 2 : 1),
-          parseInt(row.max_duties, 10) || 5
-        ]
+        `INSERT INTO faculty (faculty_code, name, email, department, designation, seniority_level, max_duties)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), department = VALUES(department), designation = VALUES(designation), seniority_level = VALUES(seniority_level)`,
+        [row.faculty_code, row.name, row.email, row.department, designation, seniorityLevel, parseInt(row.max_duties, 10) || 5]
       );
       count++;
     }
@@ -109,23 +105,10 @@ const INGESTION_STRATEGIES = {
       const rowsCount = parseInt(row.rows_count, 10) || 5;
       const colsCount = parseInt(row.cols_count, 10) || Math.ceil(capacity / rowsCount);
       await query(
-        `INSERT INTO rooms (room_number, building, floor, capacity, rows_count, cols_count, special_instructions)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-            building = VALUES(building), 
-            capacity = VALUES(capacity),
-            rows_count = VALUES(rows_count),
-            cols_count = VALUES(cols_count),
-            special_instructions = COALESCE(VALUES(special_instructions), special_instructions)`,
-        [
-          row.room_number,
-          row.building || 'Main Block',
-          parseInt(row.floor, 10) || 1,
-          capacity,
-          rowsCount,
-          colsCount,
-          row.special_instructions || null
-        ]
+        `INSERT INTO rooms (room_number, building, capacity, rows_count, cols_count)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE building = VALUES(building), capacity = VALUES(capacity), rows_count = VALUES(rows_count), cols_count = VALUES(cols_count)`,
+        [row.room_number, row.building, capacity, rowsCount, colsCount]
       );
       count++;
     }
