@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Shield,
   Eye,
+  EyeOff,
   Lock,
   Mail,
   AlertCircle,
@@ -18,6 +19,7 @@ export default function PortalLoginView({ onLoginSuccess }) {
   const [selectedPortal, setSelectedPortal] = useState('TEACHER'); // 'TEACHER' or 'ADMIN'
   const [email, setEmail] = useState('professor@examsphere.edu');
   const [password, setPassword] = useState('professor123');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -308,18 +310,62 @@ export default function PortalLoginView({ onLoginSuccess }) {
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.35rem' }}>
-            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.35rem', display: 'block' }}>
-              Password
-            </label>
-            <input
-              type="password"
-              className="form-control"
-              placeholder="••••••••"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '0.65rem 0.85rem' }}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: showPassword ? (selectedPortal === 'TEACHER' ? 'var(--accent-cyan)' : 'var(--primary)') : 'var(--text-muted)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '2px 4px'
+                }}
+              >
+                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                <span>{showPassword ? 'Hide Password' : 'Show Password'}</span>
+              </button>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="form-control"
+                placeholder="••••••••"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: '100%', padding: '0.65rem 2.6rem 0.65rem 0.85rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: showPassword ? (selectedPortal === 'TEACHER' ? 'var(--accent-cyan)' : 'var(--primary)') : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px'
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           <button

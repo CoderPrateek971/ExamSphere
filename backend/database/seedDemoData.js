@@ -194,6 +194,62 @@ async function seedCompleteDemoData() {
   }
   console.log('Exams seeded successfully.');
 
+  // 6. Seed Demo Seat Allocations & Attendance for Analytics (Module 10)
+  const [dbRooms] = await query('SELECT id, room_number FROM rooms LIMIT 3');
+  const [dbStudents] = await query('SELECT id, enrollment_no FROM students LIMIT 24');
+  const [dbExams] = await query('SELECT id FROM exams LIMIT 2');
+  const [dbFaculty] = await query('SELECT id FROM faculty LIMIT 2');
+
+  if (dbRooms.length > 0 && dbStudents.length > 0 && dbExams.length > 0) {
+    const examId = dbExams[0].id;
+    const room1 = dbRooms[0].id;
+    const room2 = dbRooms[1]?.id || room1;
+
+    for (let i = 0; i < dbStudents.length; i++) {
+      const student = dbStudents[i];
+      const targetRoom = i < 15 ? room1 : room2;
+      const seatNum = `S-${i + 1}`;
+
+      // Insert seat allocation
+      await query(
+        `INSERT INTO seat_allocations (exam_id, student_id, room_id, seat_number, row_num, col_num)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE seat_number = VALUES(seat_number)`,
+        [examId, student.id, targetRoom, seatNum, Math.floor(i / 6) + 1, (i % 6) + 1]
+      );
+
+      // Insert attendance record (mostly PRESENT, a couple ABSENT)
+      const isAbsent = (i === 3 || i === 11);
+      const isFlagged = (i === 7);
+      const status = isAbsent ? 'ABSENT' : (isFlagged ? 'FLAGGED' : 'PRESENT');
+      const method = isAbsent ? 'MANUAL' : 'FACE_MATCH';
+
+      await query(
+        `INSERT INTO attendance (exam_id, student_id, room_id, status, verification_method)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE status = VALUES(status), verification_method = VALUES(verification_method)`,
+        [examId, student.id, targetRoom, status, method]
+      );
+    }
+    console.log('Seat allocations & attendance seeded.');
+
+    // Seed 2 Demo UFM Incidents
+    if (dbFaculty.length > 0) {
+      await query(
+        `INSERT INTO ufm_reports (exam_id, student_id, room_id, invigilator_id, incident_details, status)
+         VALUES 
+         (?, ?, ?, ?, 'Possession of unauthorized formula cheat sheet written on desk ruler during Software Engineering exam.', 'REPORTED'),
+         (?, ?, ?, ?, 'Found using smart watch to access notes during exam duration. Evidence confiscated.', 'ACTION_TAKEN')
+         ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+        [
+          examId, dbStudents[0].id, room1, dbFaculty[0].id,
+          examId, dbStudents[1].id, room1, dbFaculty[0].id
+        ]
+      );
+      console.log('UFM incident reports seeded.');
+    }
+  }
+
   return { success: true };
 }
 
