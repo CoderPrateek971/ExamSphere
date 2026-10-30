@@ -15,7 +15,7 @@ import AdminAttendanceView from './components/AdminAttendanceView';
 import AnalyticsReportsView from './components/AnalyticsReportsView';
 import LoginModal from './components/LoginModal';
 import { api } from './api';
-import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera, Calendar, HelpCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera, Calendar, HelpCircle, ArrowRight, CheckCircle2, BarChart3 } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
