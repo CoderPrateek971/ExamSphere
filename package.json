@@ -8,7 +8,15 @@
     "backend": "npm run dev --prefix backend",
     "frontend": "npm run dev --prefix frontend",
     "test": "npm test --prefix backend",
+<<<<<<< HEAD
     "seed": "npm run seed --prefix backend"
+=======
+    "test:auth": "npm run test:auth --prefix backend",
+    "test:duty": "npm run test:duty --prefix backend",
+    "test:smart": "npm run test:smart --prefix backend",
+    "test:incident": "npm run test:incident --prefix backend",
+    "test:api": "npm run test:api --prefix backend"
+>>>>>>> d14a93f (Added email duty management functionality)
   },
   "keywords": [
     "examsphere"
