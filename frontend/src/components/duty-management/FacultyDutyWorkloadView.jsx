@@ -203,11 +203,7 @@ function DayScheduleTimeline({ todayDuties = [], queryStart, queryEnd }) {
   );
 }
 
-<<<<<<< HEAD
 export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
-=======
-export default function FacultyDutyWorkloadView({ user }) {
->>>>>>> d14a93f (Added email duty management functionality)
   const [activeTab, setActiveTab] = useState('roster'); // 'roster' | 'availability' | 'balancing'
   
   // Data State - Dynamically loaded from real master data and scheduled exams
