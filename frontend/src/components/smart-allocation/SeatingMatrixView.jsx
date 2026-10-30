@@ -5,62 +5,12 @@ import {
   Trash2, Video, CheckCircle, Info, Grid, Layers, AlertCircle 
 } from 'lucide-react';
 
-// Fallback mock exams, rooms, and 2D checkerboard grid
-const MOCK_SEATING_EXAMS = [
-  { id: 1, course_code: 'CSE3005', exam_name: 'Software Engineering End-Term', department: 'CSE', semester: 6 },
-  { id: 2, course_code: 'CSE3002', exam_name: 'Database Systems Final', department: 'CSE', semester: 6 },
-  { id: 3, course_code: 'ECE2001', exam_name: 'Digital Electronics Mid-Term', department: 'ECE', semester: 4 }
-];
-
-const MOCK_SEATING_ROOMS = [
-  { id: 1, room_number: 'E2-101', capacity: 30, allocated_count: 30 },
-  { id: 2, room_number: 'E2-102', capacity: 30, allocated_count: 24 },
-  { id: 3, room_number: 'E2-201', capacity: 40, allocated_count: 36 }
-];
-
-const generateMockGrid = (rows = 5, cols = 6) => {
-  const grid = [];
-  const courses = ['CSE3005', 'CSE3002'];
-  let seatNum = 1;
-
-  for (let r = 0; r < rows; r++) {
-    const row = [];
-    for (let c = 0; c < cols; c++) {
-      const course = courses[(r + c) % 2];
-      row.push({
-        row: r,
-        col: c,
-        seat_number: `S-${seatNum++}`,
-        student: {
-          id: 100 + seatNum,
-          enrollment_no: `2101${course.slice(0, 3)}${String(seatNum).padStart(3, '0')}`,
-          name: `Candidate ${seatNum}`,
-          course_code: course,
-          department: course.slice(0, 3)
-        }
-      });
-    }
-    grid.push(row);
-  }
-
-  return {
-    roomId: 1,
-    roomNumber: 'E2-101',
-    capacity: 30,
-    allocatedCount: 30,
-    antiCheatingScore: 100,
-    grid
-  };
-};
-
-const MOCK_GRID = generateMockGrid(5, 6);
-
 export default function SeatingMatrixView({ initialExamId = null }) {
-  const [exams, setExams] = useState(MOCK_SEATING_EXAMS);
-  const [selectedExamId, setSelectedExamId] = useState(initialExamId || 1);
-  const [rooms, setRooms] = useState(MOCK_SEATING_ROOMS);
-  const [selectedRoomId, setSelectedRoomId] = useState(1);
-  const [gridData, setGridData] = useState(MOCK_GRID);
+  const [exams, setExams] = useState([]);
+  const [selectedExamId, setSelectedExamId] = useState(initialExamId || null);
+  const [rooms, setRooms] = useState([]);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [gridData, setGridData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [allocating, setAllocating] = useState(false);
   const [strategy, setStrategy] = useState('CHECKERBOARD_INTERLEAVE');
@@ -70,14 +20,14 @@ export default function SeatingMatrixView({ initialExamId = null }) {
   const loadExams = async () => {
     try {
       const res = await api.getExams();
-      const list = res.data && res.data.length > 0 ? res.data : MOCK_SEATING_EXAMS;
+      const list = res.data && Array.isArray(res.data) ? res.data : [];
       setExams(list);
       if (!selectedExamId && list.length > 0) {
         setSelectedExamId(list[0].id);
       }
     } catch (err) {
-      console.warn('Using mock exams fallback:', err.message);
-      setExams(MOCK_SEATING_EXAMS);
+      console.warn('Failed to load exams:', err.message);
+      setExams([]);
     }
   };
 
@@ -86,15 +36,15 @@ export default function SeatingMatrixView({ initialExamId = null }) {
     if (!examId) return;
     try {
       const res = await api.getRoomsOverview(examId);
-      const list = res.data && res.data.length > 0 ? res.data : MOCK_SEATING_ROOMS;
+      const list = res.data && Array.isArray(res.data) ? res.data : [];
       setRooms(list);
       if (list.length > 0) {
         const roomWithSeats = list.find(r => r.allocated_count > 0) || list[0];
         setSelectedRoomId(roomWithSeats.id);
       }
     } catch (err) {
-      console.warn('Using mock rooms fallback:', err.message);
-      setRooms(MOCK_SEATING_ROOMS);
+      console.warn('Failed to load rooms:', err.message);
+      setRooms([]);
     }
   };
 
@@ -107,11 +57,11 @@ export default function SeatingMatrixView({ initialExamId = null }) {
       if (res.data && res.data.grid && res.data.grid.length > 0) {
         setGridData(res.data);
       } else {
-        setGridData(MOCK_GRID);
+        setGridData(null);
       }
     } catch (err) {
-      console.warn('Using mock seating grid fallback:', err.message);
-      setGridData(MOCK_GRID);
+      console.warn('Failed to load seating grid:', err.message);
+      setGridData(null);
     } finally {
       setLoading(false);
     }
@@ -147,8 +97,7 @@ export default function SeatingMatrixView({ initialExamId = null }) {
         await loadGrid(selectedRoomId, selectedExamId);
       }
     } catch (err) {
-      setGridData(generateMockGrid(5, 6));
-      alert(`Multi-Course Checkerboard Interleaving applied! (100% Anti-Cheating Integrity Score)`);
+      alert(`Seating allocation error: ${err.message || 'Failed to allocate seating'}`);
     } finally {
       setAllocating(false);
     }

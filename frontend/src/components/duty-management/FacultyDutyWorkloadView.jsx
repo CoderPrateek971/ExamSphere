@@ -326,11 +326,20 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
   const querySlotStart = timeToMinutes(availParams.start_time);
   const querySlotEnd = timeToMinutes(availParams.end_time);
 
-  // Compute live statistics dynamically:
+  // Compute live statistics dynamically (deduplicating by faculty name to avoid duplicate options):
+  const uniqueFacultyMap = new Map();
+  for (const f of facultyList) {
+    const key = String(f.name || '').trim().toLowerCase();
+    if (!uniqueFacultyMap.has(key)) {
+      uniqueFacultyMap.set(key, f);
+    }
+  }
+  const uniqueFacultyList = Array.from(uniqueFacultyMap.values());
+
   // 1. Per-day duty count: resets to 0/4 on a new day!
   // 2. Real-time active in-duty vs completed duties vs upcoming duties!
   // 3. Excludes teachers who are on leave!
-  const facultyWithStats = facultyList.map(f => {
+  const facultyWithStats = uniqueFacultyList.map(f => {
     const isOnLeave = Boolean(facultyLeaveMap[f.id]);
     const max = Number(f.max_duties) || 4;
 
