@@ -309,7 +309,7 @@ class DutyService {
         // Seniority alignment with room size
         if (session.room_capacity >= 50 && c.seniority >= 2) {
           score += 30;
-        } else if (session.room_capacity < 50 && c.seniority === 1) {
+        } else if (session.room_capacity < 50 && c.seniority <= 1) {
           score += 20;
         }
 

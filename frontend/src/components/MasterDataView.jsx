@@ -35,11 +35,11 @@ const MOCK_MASTER_DATA = {
     { id: 5, course_code: 'CSE4001', course_name: 'Machine Learning & AI', department: 'CSE', semester: 8, difficulty_level: 5 }
   ],
   rooms: [
-    { id: 1, room_number: 'E2-101', building: 'E2 Block', floor: 1, capacity: 30, rows_count: 5, cols_count: 6, has_camera: 1 },
-    { id: 2, room_number: 'E2-102', building: 'E2 Block', floor: 1, capacity: 30, rows_count: 5, cols_count: 6, has_camera: 1 },
-    { id: 3, room_number: 'E2-201', building: 'E2 Block', floor: 2, capacity: 40, rows_count: 5, cols_count: 8, has_camera: 1 },
-    { id: 4, room_number: 'AUD-HALL', building: 'Main Auditorium', floor: 0, capacity: 80, rows_count: 8, cols_count: 10, has_camera: 1 },
-    { id: 5, room_number: 'LT-1', building: 'Lecture Theatre Block', floor: 1, capacity: 60, rows_count: 6, cols_count: 10, has_camera: 1 }
+    { id: 1, room_number: 'E2-101', building: 'E2 Block', capacity: 30, rows_count: 5, cols_count: 6 },
+    { id: 2, room_number: 'E2-102', building: 'E2 Block', capacity: 30, rows_count: 5, cols_count: 6 },
+    { id: 3, room_number: 'E2-201', building: 'E2 Block', capacity: 40, rows_count: 5, cols_count: 8 },
+    { id: 4, room_number: 'AUD-HALL', building: 'Main Auditorium', capacity: 80, rows_count: 8, cols_count: 10 },
+    { id: 5, room_number: 'LT-1', building: 'Lecture Theatre Block', capacity: 60, rows_count: 6, cols_count: 10 }
   ]
 };
 

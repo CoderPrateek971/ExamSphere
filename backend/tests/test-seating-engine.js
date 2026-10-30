@@ -10,8 +10,8 @@ async function runSeatingEngineTests() {
 
   // Mock Rooms
   const rooms = [
-    { id: 1, room_number: 'E2-101', capacity: 12, rows_count: 3, cols_count: 4, building: 'Block E', floor: 1 },
-    { id: 2, room_number: 'E2-102', capacity: 12, rows_count: 3, cols_count: 4, building: 'Block E', floor: 1 }
+    { id: 1, room_number: 'E2-101', capacity: 12, rows_count: 3, cols_count: 4, building: 'Block E' },
+    { id: 2, room_number: 'E2-102', capacity: 12, rows_count: 3, cols_count: 4, building: 'Block E' }
   ];
 
   // Mock Students across 2 different courses

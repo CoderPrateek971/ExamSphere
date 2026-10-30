@@ -7,13 +7,14 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node database/init-db.js",
-    "test": "node tests/test-auth-and-masterdata.js && node tests/test-exam-scheduling.js && node tests/test-seating-engine.js && node tests/test-invigilator-attendance.js && node tests/test-duty-workload.js && node tests/test-faculty-portal.js && node tests/test-analytics-reports.js",
+    "test": "node tests/test-auth-and-masterdata.js && node tests/test-xlsx-ingestion.js && node tests/test-exam-scheduling.js && node tests/test-seating-engine.js && node tests/test-invigilator-attendance.js && node tests/test-duty-workload.js && node tests/test-faculty-portal.js && node tests/test-analytics-reports.js && node tests/test-designation-levels.js",
     "test:scheduling": "node tests/test-exam-scheduling.js",
     "test:seating": "node tests/test-seating-engine.js",
     "test:duty": "node tests/test-duty-workload.js",
     "test:attendance": "node tests/test-invigilator-attendance.js",
     "test:faculty": "node tests/test-faculty-portal.js",
     "test:analytics": "node tests/test-analytics-reports.js",
+    "test:designation": "node tests/test-designation-levels.js",
     "seed": "node database/seedDemoData.js"
   },
   "keywords": [

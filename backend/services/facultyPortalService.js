@@ -320,7 +320,6 @@ class FacultyPortalService {
         c.semester as course_semester,
         r.room_number,
         r.building,
-        r.floor,
         r.capacity as room_capacity,
         f.faculty_code,
         f.name as faculty_name,

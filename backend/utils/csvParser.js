@@ -3,12 +3,12 @@ const path = require('path');
 const csv = require('csv-parser');
 const xlsx = require('xlsx');
 
-// Expected columns for each entity
+// Expected columns for each entity matching Resource & Data Management schemas
 const REQUIRED_SCHEMAS = {
-  students: ['enrollment_no', 'name', 'email', 'department'],
-  faculty: ['faculty_code', 'name', 'email', 'department'],
-  courses: ['course_code', 'course_name', 'department'],
-  rooms: ['room_number', 'building', 'capacity']
+  students: ['enrollment_no', 'name', 'email', 'department', 'semester', 'program', 'enrolled_courses'],
+  faculty: ['faculty_code', 'name', 'email', 'department', 'designation', 'max_duties'],
+  courses: ['course_code', 'course_name', 'department', 'semester', 'difficulty_level'],
+  rooms: ['room_number', 'building', 'capacity', 'rows_count', 'cols_count']
 };
 
 /**
@@ -34,6 +34,10 @@ function parseXLSX(filePath, requiredFields) {
     for (const [key, val] of Object.entries(rawRow)) {
       row[key.trim().toLowerCase()] = typeof val === 'string' ? val.trim() : String(val).trim();
     }
+
+    // Support enrolled_subjects / enrolled_courses alias
+    if (row.enrolled_subjects && !row.enrolled_courses) row.enrolled_courses = row.enrolled_subjects;
+    if (row.enrolled_courses && !row.enrolled_subjects) row.enrolled_subjects = row.enrolled_courses;
 
     // Validate required columns
     const missingFields = requiredFields.filter((field) => !row[field] || row[field] === '');
@@ -87,6 +91,10 @@ function parseAndValidateCSV(filePath, entityType) {
         for (const [key, val] of Object.entries(rawRow)) {
           row[key.trim().toLowerCase()] = typeof val === 'string' ? val.trim() : val;
         }
+
+        // Support enrolled_subjects / enrolled_courses alias
+        if (row.enrolled_subjects && !row.enrolled_courses) row.enrolled_courses = row.enrolled_subjects;
+        if (row.enrolled_courses && !row.enrolled_subjects) row.enrolled_subjects = row.enrolled_courses;
 
         // Validate required columns
         const missingFields = requiredFields.filter((field) => !row[field] || row[field] === '');

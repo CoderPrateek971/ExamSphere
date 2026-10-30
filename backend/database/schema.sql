@@ -87,11 +87,9 @@ CREATE TABLE IF NOT EXISTS rooms (
     id INT AUTO_INCREMENT PRIMARY KEY,
     room_number VARCHAR(50) NOT NULL UNIQUE,
     building VARCHAR(50) NOT NULL,
-    floor INT DEFAULT 1,
     capacity INT NOT NULL,
     rows_count INT NOT NULL DEFAULT 5,
     cols_count INT NOT NULL DEFAULT 6,
-    has_camera BOOLEAN DEFAULT TRUE,
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

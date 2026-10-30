@@ -16,9 +16,9 @@ async function runXLSXTests() {
   try {
     // 1. Create a demo .xlsx file
     const sampleData = [
-      { enrollment_no: '240501', name: 'Kabir Sharma', email: 'kabir.s@bmu.edu.in', department: 'CSE' },
-      { enrollment_no: '240502', name: 'Riya Verma', email: 'riya.v@bmu.edu.in', department: 'ECE' },
-      { enrollment_no: '240503', name: 'Dev Patel', email: 'dev.p@bmu.edu.in', department: 'ME' }
+      { enrollment_no: '240501', name: 'Kabir Sharma', email: 'kabir.s@bmu.edu.in', department: 'CSE', semester: '4', program: 'B.Tech', enrolled_courses: 'CSE3005, CSE3002' },
+      { enrollment_no: '240502', name: 'Riya Verma', email: 'riya.v@bmu.edu.in', department: 'ECE', semester: '4', program: 'B.Tech', enrolled_courses: 'ECE2001' },
+      { enrollment_no: '240503', name: 'Dev Patel', email: 'dev.p@bmu.edu.in', department: 'ME', semester: '4', program: 'B.Tech', enrolled_courses: 'ME1001' }
     ];
 
     const worksheet = xlsx.utils.json_to_sheet(sampleData);
@@ -41,7 +41,7 @@ async function runXLSXTests() {
     // Test 2: XLSX with missing required field
     total++;
     const invalidData = [
-      { enrollment_no: '', name: 'Missing Roll Student', email: 'test@bmu.edu.in', department: 'CSE' }
+      { enrollment_no: '', name: 'Missing Roll Student', email: 'test@bmu.edu.in', department: 'CSE', semester: '4', program: 'B.Tech', enrolled_courses: 'CSE3005' }
     ];
     const invalidWS = xlsx.utils.json_to_sheet(invalidData);
     const invalidWB = xlsx.utils.book_new();

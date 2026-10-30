@@ -658,7 +658,7 @@ export default function InvigilatorPortalView({ user }) {
                             {isConfirmed ? '✓ CONFIRMED' : '⏳ ASSIGNED - CONFIRMATION REQUIRED'}
                           </span>
                           <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                            Building: {duty.building || 'Main Block'} • Floor: {duty.floor || 1}
+                            Building: {duty.building || 'Main Block'}
                           </span>
                         </div>
 
