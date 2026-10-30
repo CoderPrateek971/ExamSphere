@@ -32,12 +32,12 @@ const COLUMN_SYNONYMS = {
   stream_section: ['stream_section', 'section', 'stream / section', 'stream']
 };
 
-// Expected columns for each entity matching Resource & Data Management schemas
 const REQUIRED_SCHEMAS = {
-  students: ['enrollment_no', 'name', 'email', 'department', 'semester', 'program', 'enrolled_courses'],
-  faculty: ['faculty_code', 'name', 'email', 'department', 'designation', 'max_duties'],
-  courses: ['course_code', 'course_name', 'department', 'semester', 'difficulty_level'],
-  rooms: ['room_number', 'building', 'capacity', 'rows_count', 'cols_count']
+  students: ['enrollment_no', 'name'],
+  faculty: ['name'],
+  courses: ['course_code', 'course_name'],
+  rooms: ['room_number'],
+  'master-sheet': []
 };
 
 /**
@@ -107,20 +107,42 @@ function extractRowsFromWorksheet(worksheet, entityType) {
     }
   }
 
-    // Support enrolled_subjects / enrolled_courses alias
-    if (row.enrolled_subjects && !row.enrolled_courses) row.enrolled_courses = row.enrolled_subjects;
-    if (row.enrolled_courses && !row.enrolled_subjects) row.enrolled_subjects = row.enrolled_courses;
+  const rawHeaders = (grid[headerRowIndex] || []).map(h => String(h).trim());
+  const rows = [];
 
-    // Validate required columns
-    const missingFields = requiredFields.filter((field) => !row[field] || row[field] === '');
-    if (missingFields.length > 0) {
-      errorRows.push({
-        rowNumber: rowIndex,
-        data: row,
-        error: `Missing required field(s): ${missingFields.join(', ')}`
-      });
-    } else {
-      validRows.push(row);
+  for (let r = headerRowIndex + 1; r < grid.length; r++) {
+    const rowArr = grid[r];
+    if (!rowArr || rowArr.every(c => String(c).trim() === '')) continue; // Skip blank rows
+
+    const rowObj = {};
+    rawHeaders.forEach((header, colIdx) => {
+      if (header) {
+        rowObj[header] = rowArr[colIdx] !== undefined ? rowArr[colIdx] : '';
+      }
+    });
+
+    rows.push(rowObj);
+  }
+
+  return rows;
+}
+
+/**
+ * Reads any spreadsheet file (.xlsx, .xls, .csv) and returns normalized row objects.
+ * Scans all sheets if targetSheetName is not found.
+ */
+function readSpreadsheetRows(filePath, targetEntityType = null) {
+  const workbook = XLSX.readFile(filePath, { cellDates: true });
+  let candidateRows = [];
+
+  // First try direct sheet name match
+  if (targetEntityType) {
+    const directMatch = workbook.SheetNames.find(
+      s => s.toLowerCase().trim().includes(targetEntityType.toLowerCase().trim())
+    );
+    if (directMatch) {
+      candidateRows = extractRowsFromWorksheet(workbook.Sheets[directMatch], targetEntityType);
+      if (candidateRows.length > 0) return candidateRows;
     }
   }
 
@@ -174,41 +196,39 @@ async function parseAndValidateSpreadsheet(filePath, entityType) {
       }
     }
 
-    const validRows = [];
-    const errorRows = [];
-    let rowIndex = 1; // 1-indexed, starting after header
+    if (entityType === 'faculty') {
+      if (!row.faculty_code) {
+        const cleanName = (row.name || 'FAC').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+        row.faculty_code = `FAC_${cleanName}_${rowNumber}`;
+      }
+      if (!row.email && row.name) {
+        row.email = `${row.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}.${rowNumber}@bmu.edu.in`;
+      }
+      if (!row.department) row.department = 'SOET';
+      if (String(row.name || '').includes('(RS)') || String(row.designation || '').toLowerCase().includes('scholar')) {
+        row.staff_category = 'PHD_SCHOLAR';
+      } else if (String(row.designation || '').toLowerCase().includes('technician') || String(row.designation || '').toLowerCase().includes('assistant')) {
+        row.staff_category = 'LAB_STAFF';
+      } else {
+        row.staff_category = 'FACULTY';
+      }
+    }
 
-    fs.createReadStream(filePath)
-      .pipe(csv())
-      .on('data', (rawRow) => {
-        rowIndex++;
-        // Clean column keys and trim values
-        const row = {};
-        for (const [key, val] of Object.entries(rawRow)) {
-          row[key.trim().toLowerCase()] = typeof val === 'string' ? val.trim() : val;
-        }
+    if (entityType === 'students') {
+      if (!row.department) row.department = 'CSE';
+      if (!row.email && row.name) {
+        const uid = row.unique_id || row.enrollment_no || rowNumber;
+        row.email = `${row.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}.${uid}@bmu.edu.in`;
+      }
+    }
 
-        // Support enrolled_subjects / enrolled_courses alias
-        if (row.enrolled_subjects && !row.enrolled_courses) row.enrolled_courses = row.enrolled_subjects;
-        if (row.enrolled_courses && !row.enrolled_subjects) row.enrolled_subjects = row.enrolled_courses;
-
-        // Validate required columns
-        const missingFields = requiredFields.filter((field) => !row[field] || row[field] === '');
-        if (missingFields.length > 0) {
-          errorRows.push({
-            rowNumber: rowIndex,
-            data: row,
-            error: `Missing required field(s): ${missingFields.join(', ')}`
-          });
-        } else {
-          validRows.push(row);
-        }
-      })
-      .on('end', () => {
-        resolve({ validRows, errorRows });
-      })
-      .on('error', (err) => {
-        reject(err);
+    // Validate required fields
+    const missing = requiredFields.filter(f => !row[f] || String(row[f]).trim() === '');
+    if (missing.length > 0) {
+      errorRows.push({
+        rowNumber,
+        data: row,
+        error: `Missing required field(s): ${missing.join(', ')}`
       });
     } else {
       validRows.push(row);
