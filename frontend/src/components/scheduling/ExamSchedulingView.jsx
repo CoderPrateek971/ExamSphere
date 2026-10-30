@@ -11,94 +11,7 @@ import GenerateTimetableModal from './GenerateTimetableModal';
 import TimetableDatesSpanModal from './TimetableDatesSpanModal';
 import TimetableCalendarGrid from './TimetableCalendarGrid';
 
-// Realistic Fallback Data in case backend is syncing
-const FALLBACK_COURSES = [
-  { id: 1, course_code: 'CSE3005', course_name: 'Software Engineering', department: 'CSE', semester: 4, difficulty_level: 3 },
-  { id: 2, course_code: 'CSE3002', course_name: 'Database Management Systems', department: 'CSE', semester: 4, difficulty_level: 4 },
-  { id: 3, course_code: 'ECE2001', course_name: 'Digital Electronics', department: 'ECE', semester: 4, difficulty_level: 4 },
-  { id: 4, course_code: 'ME1001', course_name: 'Thermodynamics', department: 'ME', semester: 4, difficulty_level: 5 }
-];
-
-const FALLBACK_EXAMS = [
-  {
-    id: 1,
-    course_id: 1,
-    course_code: 'CSE3005',
-    course_name: 'Software Engineering',
-    department: 'CSE',
-    semester: 4,
-    difficulty_level: 3,
-    exam_name: 'Software Engineering (CSE3005) End-Term',
-    exam_type: 'END_TERM',
-    exam_date: '2026-11-20',
-    start_time: '09:30:00',
-    end_time: '12:30:00',
-    duration_minutes: 180,
-    status: 'SCHEDULED',
-    allocated_students_count: 24,
-    rooms_used_count: 1,
-    assigned_faculty_count: 1
-  },
-  {
-    id: 2,
-    course_id: 3,
-    course_code: 'ECE2001',
-    course_name: 'Digital Electronics',
-    department: 'ECE',
-    semester: 4,
-    difficulty_level: 4,
-    exam_name: 'Digital Electronics (ECE2001) End-Term',
-    exam_type: 'END_TERM',
-    exam_date: '2026-11-20',
-    start_time: '09:30:00',
-    end_time: '12:30:00',
-    duration_minutes: 180,
-    status: 'SCHEDULED',
-    allocated_students_count: 20,
-    rooms_used_count: 1,
-    assigned_faculty_count: 1
-  },
-  {
-    id: 3,
-    course_id: 2,
-    course_code: 'CSE3002',
-    course_name: 'Database Management Systems',
-    department: 'CSE',
-    semester: 4,
-    difficulty_level: 4,
-    exam_name: 'Database Management Systems (CSE3002) Mid-Term',
-    exam_type: 'MID_TERM',
-    exam_date: '2026-11-23',
-    start_time: '14:00:00',
-    end_time: '17:00:00',
-    duration_minutes: 180,
-    status: 'SCHEDULED',
-    allocated_students_count: 24,
-    rooms_used_count: 1,
-    assigned_faculty_count: 1
-  },
-  {
-    id: 4,
-    course_id: 4,
-    course_code: 'ME1001',
-    course_name: 'Thermodynamics',
-    department: 'ME',
-    semester: 4,
-    difficulty_level: 5,
-    exam_name: 'Thermodynamics (ME1001) End-Term',
-    exam_type: 'END_TERM',
-    exam_date: '2026-11-25',
-    start_time: '09:30:00',
-    end_time: '12:30:00',
-    duration_minutes: 180,
-    status: 'SCHEDULED',
-    allocated_students_count: 16,
-    rooms_used_count: 1,
-    assigned_faculty_count: 1
-  }
-];
-
-export default function ExamSchedulingView({ user }) {
+export default function ExamSchedulingView({ user, onNavigateToStep }) {
   // Navigation Sub-Tabs: 'calendar' | 'table' | 'conflicts' | 'cohort' | 'printable'
   const [activeSubTab, setActiveSubTab] = useState('calendar');
 
@@ -164,16 +77,16 @@ export default function ExamSchedulingView({ user }) {
       // 2. Fetch courses for selectors
       try {
         const cRes = await api.getEntities('courses');
-        if (cRes && cRes.data && cRes.data.length > 0) {
+        if (cRes && cRes.data && Array.isArray(cRes.data)) {
           setCourses(cRes.data);
         } else {
-          setCourses(FALLBACK_COURSES);
+          setCourses([]);
         }
       } catch {
-        setCourses(FALLBACK_COURSES);
+        setCourses([]);
       }
 
-      // 3. Fetch exams (Do not overwrite valid empty query results with mock data)
+      // 3. Fetch exams from live database
       try {
         const res = await api.getExams({
           department: deptFilter !== 'ALL' ? deptFilter : null,
@@ -182,14 +95,14 @@ export default function ExamSchedulingView({ user }) {
           search: search.trim() ? search.trim() : null
         });
 
-        if (res && res.data) {
+        if (res && res.data && Array.isArray(res.data)) {
           setExams(res.data);
         } else {
           setExams([]);
         }
       } catch (examErr) {
-        console.warn('Exams fetch note, using realistic fallback if empty:', examErr.message);
-        setExams(prev => (prev.length === 0 ? FALLBACK_EXAMS : prev));
+        console.warn('Exams fetch note:', examErr.message);
+        setExams([]);
       }
 
       // 4. Fetch Matrix
@@ -343,6 +256,62 @@ export default function ExamSchedulingView({ user }) {
 
   return (
     <div className="panel-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Workflow Navigation Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(99,102,241,0.12), rgba(245,158,11,0.12))',
+        border: '1px solid rgba(99,102,241,0.25)',
+        borderRadius: '10px',
+        padding: '0.85rem 1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{
+            background: '#f59e0b',
+            color: '#000',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 800
+          }}>2</span>
+          <div>
+            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 2: Exam Scheduling & Timetable Matrix</strong>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
+              {courses.length} courses loaded from Step 1. Schedule exams into conflict-free dates & shifts. Scheduled exams flow directly into Step 3 (Smart Seating).
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => onNavigateToStep('master-data')}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <span>⬅️ Back to Step 1: Master Data</span>
+            </button>
+          )}
+
+          {onNavigateToStep && exams.length > 0 && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => onNavigateToStep('seating')}
+              style={{ fontWeight: 600 }}
+            >
+              <span>Proceed to Step 3: Smart Seating ({exams.length} Exams Ready)</span>
+              <ArrowRight size={15} />
+            </button>
+          )}
+        </div>
+      </div>
       {/* Action Notification Banner */}
       {actionMessage && (
         <div

@@ -1,12 +1,14 @@
 const fs = require('fs');
+const path = require('path');
+const XLSX = require('xlsx');
 const { query } = require('../config/db');
-const { parseAndValidateCSV } = require('../utils/csvParser');
+const { parseAndValidateSpreadsheet, normalizeRow } = require('../utils/csvParser');
 
 const { mapDesignationToSeniority } = require('../utils/designationHelper');
 
 /**
  * Strategy Pattern: Entity Ingestion Strategies
- * Extensible for any new entity without altering the core ingestion algorithm (Open-Closed Principle)
+ * Supports both Excel (.xlsx, .xls) and CSV (.csv) formats with extended attributes.
  */
 const INGESTION_STRATEGIES = {
   students: async (rows) => {
@@ -70,10 +72,26 @@ const INGESTION_STRATEGIES = {
     let count = 0;
     for (const row of rows) {
       await query(
-        `INSERT INTO courses (course_code, course_name, department, semester, difficulty_level)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE course_name = VALUES(course_name), department = VALUES(department), difficulty_level = VALUES(difficulty_level)`,
-        [row.course_code, row.course_name, row.department, parseInt(row.semester, 10) || 1, parseInt(row.difficulty_level, 10) || 3]
+        `INSERT INTO courses (course_code, course_name, department, eligible_branches, credits, target_batch, course_coordinator_name, difficulty_level)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+            course_name = VALUES(course_name), 
+            department = VALUES(department), 
+            eligible_branches = COALESCE(VALUES(eligible_branches), eligible_branches),
+            credits = COALESCE(VALUES(credits), credits),
+            target_batch = COALESCE(VALUES(target_batch), target_batch),
+            course_coordinator_name = COALESCE(VALUES(course_coordinator_name), course_coordinator_name),
+            difficulty_level = VALUES(difficulty_level)`,
+        [
+          row.course_code,
+          row.course_name,
+          row.department || 'CSE',
+          row.eligible_branches || row.department || 'CSE',
+          parseFloat(row.credits) || 3.0,
+          row.target_batch || null,
+          row.course_coordinator_name || null,
+          parseInt(row.difficulty_level, 10) || 3
+        ]
       );
       count++;
     }
@@ -95,21 +113,85 @@ const INGESTION_STRATEGIES = {
       count++;
     }
     return count;
+  },
+
+  'master-sheet': async (workbook) => {
+    let totalIngested = 0;
+    const summary = { courses: 0, rooms: 0, faculty: 0, students: 0 };
+
+    for (const sheetName of workbook.SheetNames) {
+      const sLower = sheetName.toLowerCase().trim();
+      const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+      if (rawRows.length === 0) continue;
+
+      const normalizedRows = rawRows.map(normalizeRow);
+
+      if (sLower.includes('course') || sLower.includes('subject') || sLower.includes('timetable') || normalizedRows[0]?.course_code) {
+        const valid = normalizedRows.filter(r => r.course_code && r.course_name);
+        if (valid.length > 0) {
+          const count = await INGESTION_STRATEGIES.courses(valid);
+          summary.courses += count;
+          totalIngested += count;
+        }
+      }
+
+      if (sLower.includes('room') || sLower.includes('venue') || sLower.includes('seating') || normalizedRows[0]?.room_number) {
+        const valid = normalizedRows.filter(r => r.room_number);
+        if (valid.length > 0) {
+          const count = await INGESTION_STRATEGIES.rooms(valid);
+          summary.rooms += count;
+          totalIngested += count;
+        }
+      }
+
+      if (sLower.includes('faculty') || sLower.includes('teacher') || sLower.includes('invigilator') || sLower.includes('scholar') || normalizedRows[0]?.faculty_code) {
+        const valid = normalizedRows.filter(r => r.name);
+        if (valid.length > 0) {
+          const count = await INGESTION_STRATEGIES.faculty(valid);
+          summary.faculty += count;
+          totalIngested += count;
+        }
+      }
+
+      if (sLower.includes('student') || sLower.includes('attendance') || sLower.includes('candidate') || normalizedRows[0]?.enrollment_no) {
+        const valid = normalizedRows.filter(r => r.enrollment_no && r.name);
+        if (valid.length > 0) {
+          const count = await INGESTION_STRATEGIES.students(valid);
+          summary.students += count;
+          totalIngested += count;
+        }
+      }
+    }
+
+    return { totalIngested, summary };
   }
 };
 
-class CSVIngestionService {
+class SpreadsheetIngestionService {
   /**
-   * Process and ingest CSV for any supported entity type
+   * Ingest any supported spreadsheet file (.xlsx, .xls, .csv)
    */
-  async ingestCSV(filePath, entityType) {
+  async ingestSpreadsheet(filePath, entityType) {
     const strategy = INGESTION_STRATEGIES[entityType];
     if (!strategy) {
-      throw new Error(`Unsupported entity type: ${entityType}`);
+      throw new Error(`Unsupported entity type: ${entityType}. Supported: students, faculty, courses, rooms, master-sheet.`);
     }
 
     try {
-      const { validRows, errorRows } = await parseAndValidateCSV(filePath, entityType);
+      if (entityType === 'master-sheet') {
+        const workbook = XLSX.readFile(filePath, { cellDates: true });
+        const { totalIngested, summary } = await strategy(workbook);
+
+        return {
+          totalRowsProcessed: totalIngested,
+          insertedOrUpdated: totalIngested,
+          failedRowsCount: 0,
+          errors: [],
+          sheetSummary: summary
+        };
+      }
+
+      const { validRows, errorRows } = await parseAndValidateSpreadsheet(filePath, entityType);
       const insertedCount = await strategy(validRows);
 
       return {
@@ -119,12 +201,21 @@ class CSVIngestionService {
         errors: errorRows
       };
     } finally {
-      // Always cleanup file (Defensive Resource Management)
+      // Defensive file cleanup
       if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          // ignore
+        }
       }
     }
   }
+
+  // Backwards-compatible alias
+  async ingestCSV(filePath, entityType) {
+    return this.ingestSpreadsheet(filePath, entityType);
+  }
 }
 
-module.exports = new CSVIngestionService();
+module.exports = new SpreadsheetIngestionService();

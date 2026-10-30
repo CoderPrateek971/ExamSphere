@@ -7,105 +7,7 @@ import {
   RotateCcw, Smartphone
 } from 'lucide-react';
 
-// =====================================================================
-// DEFAULT DATA (For instant demo reliability & offline fallback)
-// =====================================================================
-const DEFAULT_EXAMS = [
-  { id: 1, exam_name: 'Software Engineering End-Term', course_code: 'CSE3005', exam_date: '2026-11-20', time_slot: '09:30 AM – 12:30 PM' },
-  { id: 2, exam_name: 'Database Management Systems Final', course_code: 'CSE3002', exam_date: '2026-11-22', time_slot: '09:30 AM – 12:30 PM' },
-  { id: 3, exam_name: 'Digital Electronics Mid-Term', course_code: 'ECE2001', exam_date: '2026-11-24', time_slot: '02:00 PM – 05:00 PM' },
-  { id: 4, exam_name: 'Thermodynamics End-Term', course_code: 'ME1001', exam_date: '2026-11-26', time_slot: '09:30 AM – 12:30 PM' }
-];
-
-const DEFAULT_ROOMS = [
-  { id: 1, room_number: 'E2-101', building: 'E2 Block' },
-  { id: 2, room_number: 'E2-102', building: 'E2 Block' },
-  { id: 3, room_number: 'E2-201', building: 'E2 Block' },
-  { id: 4, room_number: 'AUD-HALL', building: 'Main Auditorium' }
-];
-
-const DEFAULT_INCIDENTS = [
-  {
-    id: 1,
-    report_number: 'UFM-2026-001',
-    exam_id: 1,
-    exam_name: 'Software Engineering (CSE3005)',
-    course_code: 'CSE3005',
-    student_id: 101,
-    student_name: 'Aman Sharma',
-    student_roll: '21BCSE1042',
-    student_dept: 'Computer Science & Engineering',
-    room_id: 1,
-    room_number: 'E2-101',
-    desk_number: 'Row 3, Desk 14',
-    invigilator_id: 1,
-    invigilator_name: 'Dr. Shilpa Mahajan',
-    invigilator_department: 'CSE',
-    incident_date: '2026-11-20',
-    incident_time: '10:45 AM',
-    material_confiscated: '3 handwritten formula chits under exam sheet',
-    incident_details: 'Student was caught looking at micro-formula chits kept underneath his admit card during question 3.',
-    student_statement: 'I brought the chits for revision outside and forgot they were under my clipboard.',
-    witness_name: 'Prof. Harsh Taneja',
-    evidence_photo_url: 'https://images.unsplash.com/photo-1588072432836-e10032774350?auto=format&fit=crop&w=600&q=80',
-    status: 'SUBMITTED',
-    created_at: '2026-11-20T11:05:00Z'
-  },
-  {
-    id: 2,
-    report_number: 'UFM-2026-002',
-    exam_id: 1,
-    exam_name: 'Software Engineering (CSE3005)',
-    course_code: 'CSE3005',
-    student_id: 102,
-    student_name: 'Rohan Verma',
-    student_roll: '21BCSE1089',
-    student_dept: 'Computer Science & Engineering',
-    room_id: 3,
-    room_number: 'E2-201',
-    desk_number: 'Row 5, Desk 28',
-    invigilator_id: 2,
-    invigilator_name: 'Dr. Nishtha Phutela',
-    invigilator_department: 'CSE',
-    incident_date: '2026-11-20',
-    incident_time: '11:15 AM',
-    material_confiscated: 'Samsung smartphone with open exam forum',
-    incident_details: 'Phone was vibrating inside jacket pocket. Student was caught reading answers from an online discussion forum.',
-    student_statement: 'I forgot to submit my phone at the hall entrance before starting.',
-    witness_name: 'Dr. Sukhandeep Kaur',
-    evidence_photo_url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80',
-    status: 'SUBMITTED',
-    created_at: '2026-11-20T11:30:00Z'
-  },
-  {
-    id: 3,
-    report_number: 'UFM-2026-003',
-    exam_id: 2,
-    exam_name: 'Database Management Systems (CSE3002)',
-    course_code: 'CSE3002',
-    student_id: 103,
-    student_name: 'Priya Nair',
-    student_roll: '21BECE1015',
-    student_dept: 'Electronics & Communication',
-    room_id: 2,
-    room_number: 'E2-102',
-    desk_number: 'Row 2, Desk 08',
-    invigilator_id: 1,
-    invigilator_name: 'Dr. Shilpa Mahajan',
-    invigilator_department: 'CSE',
-    incident_date: '2026-11-22',
-    incident_time: '10:10 AM',
-    material_confiscated: 'Apple Watch displaying saved SQL tables',
-    incident_details: 'Student was seen tapping smartwatch screen with saved photos of SQL queries and normalization formulas.',
-    student_statement: 'I wear this watch for fitness tracking and forgot photos were open.',
-    witness_name: 'Prof. Harsh Taneja',
-    evidence_photo_url: 'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=600&q=80',
-    status: 'SUBMITTED',
-    created_at: '2026-11-22T10:25:00Z'
-  }
-];
-
-export default function ExamIncidentManagementView({ user }) {
+export default function ExamIncidentManagementView({ user, onNavigateToStep }) {
   const isFaculty = user && user.role === 'FACULTY';
   const isAdmin = !isFaculty;
 
@@ -113,7 +15,9 @@ export default function ExamIncidentManagementView({ user }) {
   const [activeTab, setActiveTab] = useState(isFaculty ? 'submit_report' : 'manage_records');
 
   // Incidents Data State
-  const [incidents, setIncidents] = useState(DEFAULT_INCIDENTS);
+  const [incidents, setIncidents] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Simple Search Input
@@ -134,22 +38,22 @@ export default function ExamIncidentManagementView({ user }) {
 
   // New Case Form State
   const [form, setForm] = useState({
-    exam_id: '1',
-    exam_name: DEFAULT_EXAMS[0].exam_name,
-    course_code: DEFAULT_EXAMS[0].course_code,
-    room_id: '1',
-    room_number: DEFAULT_ROOMS[0].room_number,
-    desk_number: 'Row 3, Desk 12',
+    exam_id: '',
+    exam_name: '',
+    course_code: '',
+    room_id: '',
+    room_number: '',
+    desk_number: 'Desk 1',
     student_name: '',
     student_roll: '',
-    student_dept: 'Computer Science & Engineering',
-    incident_date: '2026-11-20',
-    incident_time: '10:30 AM',
+    student_dept: 'CSE',
+    incident_date: new Date().toISOString().split('T')[0],
+    incident_time: '10:00 AM',
     material_confiscated: '',
     incident_details: '',
     student_statement: '',
     witness_name: '',
-    evidence_photo_url: 'https://images.unsplash.com/photo-1588072432836-e10032774350?auto=format&fit=crop&w=600&q=80'
+    evidence_photo_url: ''
   });
 
   // Real-Time Camera Viewfinder State
@@ -166,16 +70,19 @@ export default function ExamIncidentManagementView({ user }) {
   const streamRef = useRef(null);
   const simIntervalRef = useRef(null);
 
-  // Load Incidents from Backend
+  // Load Incidents, Exams, and Rooms from Backend
   const loadIncidents = async () => {
     setLoading(true);
     try {
       const res = await api.getIncidents();
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         setIncidents(res.data);
+      } else {
+        setIncidents([]);
       }
     } catch (err) {
-      console.warn('Using local incidents store:', err.message);
+      console.warn('Incidents fetch note:', err.message);
+      setIncidents([]);
     } finally {
       setLoading(false);
     }
@@ -183,6 +90,31 @@ export default function ExamIncidentManagementView({ user }) {
 
   useEffect(() => {
     loadIncidents();
+    // Load live scheduled exams
+    api.getExams().then(res => {
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setExams(res.data);
+        setForm(prev => ({
+          ...prev,
+          exam_id: res.data[0].id,
+          exam_name: res.data[0].exam_name,
+          course_code: res.data[0].course_code,
+          incident_date: res.data[0].exam_date || prev.incident_date
+        }));
+      }
+    }).catch(() => {});
+
+    // Load live rooms
+    api.getEntities('rooms').then(res => {
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setRooms(res.data);
+        setForm(prev => ({
+          ...prev,
+          room_id: res.data[0].id,
+          room_number: res.data[0].room_number
+        }));
+      }
+    }).catch(() => {});
   }, []);
 
   // Update default tab when role changes
@@ -581,17 +513,17 @@ export default function ExamIncidentManagementView({ user }) {
 
     // Reset Form
     setForm({
-      exam_id: '1',
-      exam_name: DEFAULT_EXAMS[0].exam_name,
-      course_code: DEFAULT_EXAMS[0].course_code,
-      room_id: '1',
-      room_number: DEFAULT_ROOMS[0].room_number,
-      desk_number: 'Row 3, Desk 12',
+      exam_id: exams[0]?.id || '',
+      exam_name: exams[0]?.exam_name || '',
+      course_code: exams[0]?.course_code || '',
+      room_id: rooms[0]?.id || '',
+      room_number: rooms[0]?.room_number || '',
+      desk_number: 'Desk 1',
       student_name: '',
       student_roll: '',
       student_dept: 'Computer Science & Engineering',
-      incident_date: '2026-11-20',
-      incident_time: '10:30 AM',
+      incident_date: new Date().toISOString().split('T')[0],
+      incident_time: '10:00 AM',
       material_confiscated: '',
       incident_details: '',
       student_statement: '',
@@ -644,6 +576,61 @@ export default function ExamIncidentManagementView({ user }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Workflow Navigation Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(244,63,94,0.12), rgba(99,102,241,0.12))',
+        border: '1px solid rgba(244,63,94,0.25)',
+        borderRadius: '10px',
+        padding: '0.85rem 1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{
+            background: '#f43f5e',
+            color: '#fff',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 800
+          }}>6</span>
+          <div>
+            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 6: Exam Cheating & UFM Incident Management</strong>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
+              Real-time incident reporting from exam halls. Integrates with camera evidence capture, student statement recording, and penalty tracking.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => onNavigateToStep('attendance')}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <span>⬅️ Back to Step 5: Live Attendance</span>
+            </button>
+          )}
+
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => onNavigateToStep('master-data')}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <span>Step 1: Master Data</span>
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Admin KPI Overview Cards - Clean & Simple */}
       {isAdmin && (
@@ -976,7 +963,7 @@ export default function ExamIncidentManagementView({ user }) {
                     className="form-control"
                     value={form.exam_id}
                     onChange={(e) => {
-                      const selected = DEFAULT_EXAMS.find(x => String(x.id) === String(e.target.value));
+                      const selected = exams.find(x => String(x.id) === String(e.target.value));
                       setForm(prev => ({
                         ...prev,
                         exam_id: e.target.value,
@@ -987,9 +974,10 @@ export default function ExamIncidentManagementView({ user }) {
                     }}
                     required
                   >
-                    {DEFAULT_EXAMS.map(ex => (
+                    <option value="">Select Scheduled Exam...</option>
+                    {exams.map(ex => (
                       <option key={ex.id} value={ex.id}>
-                        {ex.course_code} - {ex.exam_name}
+                        {ex.course_code} - {ex.exam_name} ({ex.exam_date})
                       </option>
                     ))}
                   </select>
@@ -1001,7 +989,7 @@ export default function ExamIncidentManagementView({ user }) {
                     className="form-control"
                     value={form.room_id}
                     onChange={(e) => {
-                      const selected = DEFAULT_ROOMS.find(r => String(r.id) === String(e.target.value));
+                      const selected = rooms.find(r => String(r.id) === String(e.target.value));
                       setForm(prev => ({
                         ...prev,
                         room_id: e.target.value,
@@ -1010,9 +998,10 @@ export default function ExamIncidentManagementView({ user }) {
                     }}
                     required
                   >
-                    {DEFAULT_ROOMS.map(r => (
+                    <option value="">Select Exam Venue Room...</option>
+                    {rooms.map(r => (
                       <option key={r.id} value={r.id}>
-                        Room {r.room_number} ({r.building})
+                        Room {r.room_number} ({r.building || 'Hall'})
                       </option>
                     ))}
                   </select>

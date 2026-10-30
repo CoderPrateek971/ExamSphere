@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Upload, RefreshCw, X } from 'lucide-react';
+import { Search, Upload, RefreshCw, X, ArrowRight, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../api';
 import CSVUploadModal from './CSVUploadModal';
 import StudentsTable from './master-data/StudentsTable';
@@ -9,63 +9,30 @@ import RoomsTable from './master-data/RoomsTable';
 
 /**
  * Modular MasterDataView
- * Coordinates tabs, search filters, and delegates rendering to individual table components
+ * Coordinates tabs, search filters, and delegates rendering to individual table components.
+ * Real data-driven: renders uploaded records without mock fallbacks.
  */
-// Realistic Fallback Master Data (Used automatically if database has 0 records)
-const MOCK_MASTER_DATA = {
-  students: [
-    { id: 101, enrollment_no: '2101CSE001', name: 'Aarav Sharma', email: 'aarav.sharma@bmu.edu.in', department: 'CSE', semester: 6, program: 'B.Tech CSE' },
-    { id: 102, enrollment_no: '2101CSE015', name: 'Diya Verma', email: 'diya.verma@bmu.edu.in', department: 'CSE', semester: 6, program: 'B.Tech CSE' },
-    { id: 103, enrollment_no: '2101ECE004', name: 'Rohan Gupta', email: 'rohan.gupta@bmu.edu.in', department: 'ECE', semester: 6, program: 'B.Tech ECE' },
-    { id: 104, enrollment_no: '2201ME008', name: 'Ananya Singh', email: 'ananya.singh@bmu.edu.in', department: 'ME', semester: 4, program: 'B.Tech ME' },
-    { id: 105, enrollment_no: '2101CSE042', name: 'Kabir Mehta', email: 'kabir.mehta@bmu.edu.in', department: 'CSE', semester: 6, program: 'B.Tech CSE' }
-  ],
-  faculty: [
-    { id: 1, faculty_code: 'FAC101', name: 'Dr. Shilpa Mahajan', email: 'shilpa.mahajan@bmu.edu.in', department: 'CSE', designation: 'Associate Professor', seniority_level: 2, max_duties: 4 },
-    { id: 2, faculty_code: 'FAC102', name: 'Dr. Nishtha Phutela', email: 'nishtha.phutela@bmu.edu.in', department: 'CSE', designation: 'Assistant Professor', seniority_level: 1, max_duties: 5 },
-    { id: 3, faculty_code: 'FAC103', name: 'Dr. Harsh Taneja', email: 'harsh.taneja@bmu.edu.in', department: 'ECE', designation: 'Associate Professor', seniority_level: 2, max_duties: 4 },
-    { id: 4, faculty_code: 'FAC104', name: 'Dr. Sukhandeep Kaur', email: 'sukhandeep.kaur@bmu.edu.in', department: 'ME', designation: 'Assistant Professor', seniority_level: 1, max_duties: 5 },
-    { id: 5, faculty_code: 'FAC105', name: 'Prof. Rajesh Kumar', email: 'rajesh.kumar@bmu.edu.in', department: 'CSE', designation: 'Professor', seniority_level: 3, max_duties: 3 }
-  ],
-  courses: [
-    { id: 1, course_code: 'CSE3005', course_name: 'Software Engineering', department: 'CSE', semester: 6, difficulty_level: 4 },
-    { id: 2, course_code: 'CSE3002', course_name: 'Database Management Systems', department: 'CSE', semester: 6, difficulty_level: 3 },
-    { id: 3, course_code: 'ECE2001', course_name: 'Digital Electronics', department: 'ECE', semester: 4, difficulty_level: 4 },
-    { id: 4, course_code: 'ME1001', course_name: 'Thermodynamics', department: 'ME', semester: 4, difficulty_level: 5 },
-    { id: 5, course_code: 'CSE4001', course_name: 'Machine Learning & AI', department: 'CSE', semester: 8, difficulty_level: 5 }
-  ],
-  rooms: [
-    { id: 1, room_number: 'E2-101', building: 'E2 Block', capacity: 30, rows_count: 5, cols_count: 6 },
-    { id: 2, room_number: 'E2-102', building: 'E2 Block', capacity: 30, rows_count: 5, cols_count: 6 },
-    { id: 3, room_number: 'E2-201', building: 'E2 Block', capacity: 40, rows_count: 5, cols_count: 8 },
-    { id: 4, room_number: 'AUD-HALL', building: 'Main Auditorium', capacity: 80, rows_count: 8, cols_count: 10 },
-    { id: 5, room_number: 'LT-1', building: 'Lecture Theatre Block', capacity: 60, rows_count: 6, cols_count: 10 }
-  ]
-};
-
-export default function MasterDataView({ user, onDataChange }) {
-  const [activeSubTab, setActiveSubTab] = useState('students');
+export default function MasterDataView({ user, onDataChange, onNavigateToStep }) {
+  const [activeSubTab, setActiveSubTab] = useState('courses');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [search, setSearch] = useState('');
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false);
-  const [isUsingDemoFallback, setIsUsingDemoFallback] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const fetchRecords = async () => {
     setLoading(true);
     try {
       const res = await api.getEntities(activeSubTab);
-      if (res.data && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         setData(res.data);
-        setIsUsingDemoFallback(false);
       } else {
-        setData(MOCK_MASTER_DATA[activeSubTab] || []);
-        setIsUsingDemoFallback(true);
+        setData([]);
       }
     } catch (err) {
-      console.warn('Backend note, loading rich fallback master data:', err.message);
-      setData(MOCK_MASTER_DATA[activeSubTab] || []);
-      setIsUsingDemoFallback(true);
+      console.warn('Backend note on fetch records:', err.message);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -83,30 +50,119 @@ export default function MasterDataView({ user, onDataChange }) {
         fetchRecords();
         if (onDataChange) onDataChange();
       } catch (err) {
-        // Optimistic UI delete for demo testing
         setData(prev => prev.filter(item => item.id !== id));
       }
     }
   };
 
-  const filteredData = (data.length > 0 ? data : (MOCK_MASTER_DATA[activeSubTab] || [])).filter((item) => {
+  const handleSeedBmuData = async () => {
+    setSeeding(true);
+    setFeedback(null);
+    try {
+      await api.seedBmuExamData();
+      await fetchRecords();
+      if (onDataChange) onDataChange();
+      setFeedback({ type: 'success', text: 'BMU Examination dataset (March 2026) loaded successfully! Courses, rooms, and faculty are now active.' });
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || 'Failed to load examination dataset.' });
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const filteredData = data.filter((item) => {
     const q = search.toLowerCase();
     return Object.values(item).some(val => String(val).toLowerCase().includes(q));
   });
 
   return (
     <div className="panel-card">
+      {/* Workflow Navigation Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(99,102,241,0.12), rgba(6,182,212,0.12))',
+        border: '1px solid rgba(99,102,241,0.25)',
+        borderRadius: '10px',
+        padding: '0.85rem 1.25rem',
+        marginBottom: '1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{
+            background: '#6366f1',
+            color: '#fff',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 800
+          }}>1</span>
+          <div>
+            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 1: Resource & Master Data Ingestion</strong>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
+              Upload your institution's courses, rooms, faculty, and student rosters. This uploaded data automatically flows into Scheduling, Seating, and Duty allocation.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleSeedBmuData} 
+            disabled={seeding}
+            style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+            title="Load real March 2026 Exam Data directly from workbook"
+          >
+            <Zap size={14} />
+            <span>{seeding ? 'Loading Dataset...' : 'Load Uploaded BMU Exam Dataset'}</span>
+          </button>
+
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => onNavigateToStep('scheduling')}
+              style={{ fontWeight: 600 }}
+            >
+              <span>Proceed to Step 2: Scheduling</span>
+              <ArrowRight size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {feedback && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          fontSize: '0.85rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: feedback.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
+          color: feedback.type === 'success' ? '#34d399' : '#fb7185',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`
+        }}>
+          {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          <span>{feedback.text}</span>
+        </div>
+      )}
+
       <div className="panel-header">
         <div className="panel-title">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h2>Resource & Data Management</h2>
-            {isUsingDemoFallback && (
-              <span className="badge badge-emerald" style={{ fontSize: '0.72rem' }}>
-                Preview & Demo Active
-              </span>
-            )}
+            <h2>Resource & Master Records</h2>
+            <span className="badge badge-emerald" style={{ fontSize: '0.75rem' }}>
+              {data.length} {activeSubTab} loaded
+            </span>
           </div>
-          <p>Student, faculty, course and room CRUD operations; CSV bulk upload and data validation</p>
+          <p>Real uploaded records for students, faculty, courses, and exam venues</p>
         </div>
 
         <div className="panel-controls">
@@ -135,14 +191,14 @@ export default function MasterDataView({ user, onDataChange }) {
 
           <button className="btn btn-emerald" onClick={() => setIsCSVModalOpen(true)}>
             <Upload size={15} />
-            <span>Upload {activeSubTab.toUpperCase()} CSV</span>
+            <span>Upload {activeSubTab.toUpperCase()} (.xlsx / .csv)</span>
           </button>
         </div>
       </div>
 
       {/* Sub tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>
-        {['students', 'faculty', 'courses', 'rooms'].map((type) => (
+        {['courses', 'rooms', 'faculty', 'students'].map((type) => (
           <button
             key={type}
             onClick={() => setActiveSubTab(type)}
@@ -165,17 +221,40 @@ export default function MasterDataView({ user, onDataChange }) {
 
       {/* High-Cohesion Decomposed Table Views */}
       <div className="table-wrapper">
-        {activeSubTab === 'students' && (
-          <StudentsTable data={filteredData} loading={loading} onDelete={handleDelete} />
-        )}
-        {activeSubTab === 'faculty' && (
-          <FacultyTable data={filteredData} loading={loading} onDelete={handleDelete} />
-        )}
-        {activeSubTab === 'courses' && (
-          <CoursesTable data={filteredData} loading={loading} onDelete={handleDelete} />
-        )}
-        {activeSubTab === 'rooms' && (
-          <RoomsTable data={filteredData} loading={loading} onDelete={handleDelete} />
+        {data.length === 0 && !loading ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#9ca3af' }}>
+            <p style={{ fontSize: '1rem', fontWeight: 600, color: '#e5e7eb', marginBottom: '0.5rem' }}>
+              No {activeSubTab} data found in the database.
+            </p>
+            <p style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              Upload your {activeSubTab} CSV file or click "Load Uploaded BMU Exam Dataset" to populate real records.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+              <button className="btn btn-emerald" onClick={() => setIsCSVModalOpen(true)}>
+                <Upload size={14} />
+                <span>Upload {activeSubTab.toUpperCase()} (.xlsx / .csv)</span>
+              </button>
+              <button className="btn btn-secondary" onClick={handleSeedBmuData} disabled={seeding}>
+                <Zap size={14} color="#fbbf24" />
+                <span>Load Uploaded BMU Exam Dataset</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {activeSubTab === 'students' && (
+              <StudentsTable data={filteredData} loading={loading} onDelete={handleDelete} />
+            )}
+            {activeSubTab === 'faculty' && (
+              <FacultyTable data={filteredData} loading={loading} onDelete={handleDelete} />
+            )}
+            {activeSubTab === 'courses' && (
+              <CoursesTable data={filteredData} loading={loading} onDelete={handleDelete} />
+            )}
+            {activeSubTab === 'rooms' && (
+              <RoomsTable data={filteredData} loading={loading} onDelete={handleDelete} />
+            )}
+          </>
         )}
       </div>
 

@@ -25,10 +25,10 @@ async function initDatabase() {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const sql = fs.readFileSync(schemaPath, 'utf8');
 
-    console.log(' Executing schema.sql (Creating database, 13 tables & Admin seed)...');
+    console.log(' Executing schema.sql (Creating database, 17 relational tables & Admin seed)...');
     await connection.query(sql);
 
-    console.log(' Database "examsphere_db" initialized successfully!');
+    console.log(' Database "examsphere_db" initialized successfully with comprehensive BMU schema!');
     console.log(' Default Admin User seeded: admin@examsphere.edu / admin123\n');
 
     // Automatically seed sample master data if empty
