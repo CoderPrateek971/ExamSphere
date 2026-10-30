@@ -41,13 +41,21 @@ class EmailService {
           template_id: templateId,
           user_id: publicKey,
           template_params: {
+            // Standard parameters from EmailJS template
+            title: cleanSubject,
+            name: facultyName || to.split('@')[0],
+            time: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+            message: cleanMessage,
             to_email: to,
             recipient_email: to,
+            from_name: senderName || 'Exam Controller Admin',
+            from_email: 'admin@examsphere.edu',
+            
+            // Domain-specific aliases
             to_name: facultyName || to.split('@')[0],
             room_number: cleanRoom,
             exam_name: examName || 'Scheduled Examination',
             subject: cleanSubject,
-            message: cleanMessage,
             sender_name: senderName || 'Exam Controller'
           }
         };

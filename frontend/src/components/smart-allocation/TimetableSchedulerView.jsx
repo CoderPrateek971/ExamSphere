@@ -5,77 +5,6 @@ import {
   Trash2, RefreshCw, Zap, BookOpen, Layers, Sparkles, Filter 
 } from 'lucide-react';
 
-// Fallback demo exams & courses
-const MOCK_SCHED_EXAMS = [
-  {
-    id: 1,
-    exam_name: 'CSE3005 Software Engineering End-Term',
-    course_id: 1,
-    course_code: 'CSE3005',
-    course_name: 'Software Engineering',
-    department: 'CSE',
-    semester: 6,
-    difficulty_level: 4,
-    exam_type: 'END_TERM',
-    exam_date: '2026-11-20',
-    start_time: '09:30:00',
-    end_time: '12:30:00',
-    duration_minutes: 180
-  },
-  {
-    id: 2,
-    exam_name: 'CSE3002 Database Systems Final',
-    course_id: 2,
-    course_code: 'CSE3002',
-    course_name: 'Database Management Systems',
-    department: 'CSE',
-    semester: 6,
-    difficulty_level: 3,
-    exam_type: 'END_TERM',
-    exam_date: '2026-11-22',
-    start_time: '09:30:00',
-    end_time: '12:30:00',
-    duration_minutes: 180
-  },
-  {
-    id: 3,
-    exam_name: 'ECE2001 Digital Electronics Mid-Term',
-    course_id: 3,
-    course_code: 'ECE2001',
-    course_name: 'Digital Electronics',
-    department: 'ECE',
-    semester: 4,
-    difficulty_level: 4,
-    exam_type: 'MID_TERM',
-    exam_date: '2026-11-24',
-    start_time: '14:00:00',
-    end_time: '17:00:00',
-    duration_minutes: 180
-  },
-  {
-    id: 4,
-    exam_name: 'ME1001 Thermodynamics End-Term',
-    course_id: 4,
-    course_code: 'ME1001',
-    course_name: 'Thermodynamics',
-    department: 'ME',
-    semester: 4,
-    difficulty_level: 5,
-    exam_type: 'END_TERM',
-    exam_date: '2026-11-26',
-    start_time: '09:30:00',
-    end_time: '12:30:00',
-    duration_minutes: 180
-  }
-];
-
-const MOCK_SCHED_COURSES = [
-  { id: 1, course_code: 'CSE3005', course_name: 'Software Engineering', department: 'CSE', semester: 6, difficulty_level: 4 },
-  { id: 2, course_code: 'CSE3002', course_name: 'Database Management Systems', department: 'CSE', semester: 6, difficulty_level: 3 },
-  { id: 3, course_code: 'ECE2001', course_name: 'Digital Electronics', department: 'ECE', semester: 4, difficulty_level: 4 },
-  { id: 4, course_code: 'ME1001', course_name: 'Thermodynamics', department: 'ME', semester: 4, difficulty_level: 5 }
-];
-
 export default function TimetableSchedulerView({ onNavigateToSeating }) {
   const [exams, setExams] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -110,15 +39,15 @@ export default function TimetableSchedulerView({ onNavigateToSeating }) {
     setLoading(true);
     try {
       const res = await api.getExams();
-      if (res.data && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         setExams(res.data);
       } else {
-        setExams(MOCK_SCHED_EXAMS);
+        setExams([]);
       }
       checkConflicts();
     } catch (err) {
-      console.warn('Using mock exams fallback:', err.message);
-      setExams(MOCK_SCHED_EXAMS);
+      console.warn('Failed to load exams:', err.message);
+      setExams([]);
     } finally {
       setLoading(false);
     }
@@ -127,14 +56,14 @@ export default function TimetableSchedulerView({ onNavigateToSeating }) {
   const loadCourses = async () => {
     try {
       const res = await api.getEntities('courses');
-      if (res.data && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         setCourses(res.data);
       } else {
-        setCourses(MOCK_SCHED_COURSES);
+        setCourses([]);
       }
     } catch (err) {
-      console.warn('Using mock courses fallback:', err.message);
-      setCourses(MOCK_SCHED_COURSES);
+      console.warn('Failed to load courses:', err.message);
+      setCourses([]);
     }
   };
 

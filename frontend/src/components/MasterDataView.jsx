@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Upload, RefreshCw, X, ArrowRight, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Upload, RefreshCw, X, ArrowRight, Zap, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 import { api } from '../api';
 import CSVUploadModal from './CSVUploadModal';
 import StudentsTable from './master-data/StudentsTable';
@@ -70,6 +70,24 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
     }
   };
 
+  const handleResetDatabase = async () => {
+    if (!window.confirm('Are you sure you want to completely clear all data from the database? This will remove all courses, rooms, faculty, students, exams, and duties so you can start with a fresh upload.')) {
+      return;
+    }
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const res = await api.resetDatabase();
+      await fetchRecords();
+      if (onDataChange) onDataChange();
+      setFeedback({ type: 'success', text: res.message || 'All records successfully cleared from the database!' });
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || 'Failed to reset database.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredData = data.filter((item) => {
     const q = search.toLowerCase();
     return Object.values(item).some(val => String(val).toLowerCase().includes(q));
@@ -114,13 +132,24 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <button 
             className="btn btn-secondary" 
+            onClick={handleResetDatabase} 
+            disabled={loading}
+            style={{ borderColor: 'rgba(244, 63, 94, 0.4)', color: '#fb7185' }}
+            title="Wipe all database records to start with a fresh clean state"
+          >
+            <Trash2 size={14} />
+            <span>Clear All Data</span>
+          </button>
+
+          <button 
+            className="btn btn-secondary" 
             onClick={handleSeedBmuData} 
             disabled={seeding}
             style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
             title="Load real March 2026 Exam Data directly from workbook"
           >
             <Zap size={14} />
-            <span>{seeding ? 'Loading Dataset...' : 'Load Uploaded BMU Exam Dataset'}</span>
+            <span>{seeding ? 'Loading Dataset...' : 'Load Builtin Exam Dataset'}</span>
           </button>
 
           {onNavigateToStep && (

@@ -109,6 +109,12 @@ export const api = {
     });
   },
 
+  resetDatabase() {
+    return this.request('/master-data/reset-database', {
+      method: 'POST',
+    });
+  },
+
   // Admin & Audit
   getSystemSummary() {
     return this.request('/admin/system-summary');

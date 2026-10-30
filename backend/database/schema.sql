@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS faculty (
     availability_notes TEXT NULL,                -- e.g., 'After 23rd', 'dont use on friday Ist half'
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_faculty_name (name),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
@@ -177,6 +178,7 @@ CREATE TABLE IF NOT EXISTS exams (
     status ENUM('DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED') DEFAULT 'SCHEDULED',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_course_date_shift (course_id, exam_date, shift),
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
 

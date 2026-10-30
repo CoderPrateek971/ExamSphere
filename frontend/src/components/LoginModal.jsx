@@ -27,12 +27,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
   useEffect(() => {
     if (isOpen) {
       setError(null);
-      setPassword('');
       const roleToUse = targetRole || 'ADMIN';
       setSelectedRole(roleToUse);
       if (roleToUse === 'FACULTY') {
-        setEmail(isSwitchMode ? '' : 'nishtha.gupta.24cse@bmu.edu.in');
-        setPassword('');
+        setEmail('faculty@examsphere.edu');
+        setPassword('faculty123');
       } else {
         setEmail('admin@examsphere.edu');
         setPassword('admin123');
@@ -46,25 +45,20 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
     if (isSwitchMode) return; // Locked in switch verification mode
     setSelectedRole(role);
     setError(null);
-    setPassword('');
     if (role === 'FACULTY') {
-      setEmail('');
-      setPassword('');
+      setEmail('faculty@examsphere.edu');
+      setPassword('faculty123');
     } else {
       setEmail('admin@examsphere.edu');
       setPassword('admin123');
     }
   };
 
-  const handleQuickFill = (fillEmail, fillPass = '', role = 'FACULTY') => {
+  const handleQuickFill = (fillEmail, fillPass = 'faculty123', role = 'FACULTY') => {
     if (isSwitchMode && role !== targetRole) return;
     setSelectedRole(role);
     setEmail(fillEmail);
-    if (role === 'FACULTY') {
-      setPassword(''); // Never pre-fill password for faculty; user types it
-    } else {
-      setPassword(fillPass);
-    }
+    setPassword(fillPass || (role === 'FACULTY' ? 'faculty123' : 'admin123'));
     setError(null);
   };
 
@@ -380,6 +374,28 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            <div style={{ marginTop: '0.35rem', fontSize: '0.74rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>
+                {activeRole === 'ADMIN'
+                  ? 'Default Admin: admin123'
+                  : 'Default Faculty password: faculty123'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPassword(activeRole === 'ADMIN' ? 'admin123' : 'faculty123')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-cyan)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: '0.74rem',
+                  textDecoration: 'underline'
+                }}
+              >
+                Auto-fill
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.65rem' }}>
@@ -447,7 +463,27 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               <button
                 type="button"
-                onClick={() => handleQuickFill('nishtha.gupta.24cse@bmu.edu.in', '', 'FACULTY')}
+                onClick={() => handleQuickFill('faculty@examsphere.edu', 'faculty123', 'FACULTY')}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.15)',
+                  border: '1px solid rgba(6, 182, 212, 0.5)',
+                  color: '#67e8f9',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>⭐ <strong>Default Faculty:</strong> Dr. Shilpa Mahajan</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.95, background: 'rgba(0,0,0,0.3)', padding: '2px 5px', borderRadius: '3px' }}>faculty@examsphere.edu</code>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('nishtha.gupta.24cse@bmu.edu.in', 'faculty123', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
                   border: '1px dashed rgba(6, 182, 212, 0.35)',
@@ -467,7 +503,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
 
               <button
                 type="button"
-                onClick={() => handleQuickFill('prateek.garg.24cse@bmu.edu.in', '', 'FACULTY')}
+                onClick={() => handleQuickFill('prateek.garg.24cse@bmu.edu.in', 'faculty123', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
                   border: '1px dashed rgba(6, 182, 212, 0.35)',
@@ -487,7 +523,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
 
               <button
                 type="button"
-                onClick={() => handleQuickFill('riwan.bhati.24cse@bmu.edu.in', '', 'FACULTY')}
+                onClick={() => handleQuickFill('riwan.bhati.24cse@bmu.edu.in', 'faculty123', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
                   border: '1px dashed rgba(6, 182, 212, 0.35)',
@@ -507,7 +543,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
 
               <button
                 type="button"
-                onClick={() => handleQuickFill('nischay.mehta.24cse@bmu.edu.in', '', 'FACULTY')}
+                onClick={() => handleQuickFill('nischay.mehta.24cse@bmu.edu.in', 'faculty123', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
                   border: '1px dashed rgba(6, 182, 212, 0.35)',
