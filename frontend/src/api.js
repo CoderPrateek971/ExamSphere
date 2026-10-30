@@ -549,4 +549,21 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+
+  // Module 10: Analytics & Reports
+  getRoomUtilization() {
+    return this.request('/analytics/room-utilization');
+  },
+
+  getAttendanceStats() {
+    return this.request('/analytics/attendance-stats');
+  },
+
+  getFacultyWorkload() {
+    return this.request('/analytics/faculty-workload');
+  },
+
+  getUFMSummary() {
+    return this.request('/analytics/ufm-summary');
+  },
 };

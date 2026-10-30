@@ -11,6 +11,11 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
 
   if (!isOpen) return null;
 
+  const isAllowedFile = (fileName) => {
+    const lower = fileName.toLowerCase();
+    return lower.endsWith('.csv') || lower.endsWith('.xlsx') || lower.endsWith('.xls');
+  };
+
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
@@ -20,14 +25,16 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
         setError('Only Excel (.xlsx, .xls) and CSV (.csv) files are supported.');
         return;
       }
-      setFile(selected);
       setError(null);
-      setResult(null);
     }
   };
 
   const handleUpload = async () => {
     if (!file) return;
+    if (!isAllowedFile(file.name)) {
+      setError('Only CSV files (.csv) or Excel (.xlsx) are allowed');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

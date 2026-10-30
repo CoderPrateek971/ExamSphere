@@ -12,6 +12,7 @@ import InvigilatorPortalView from './components/InvigilatorPortalView';
 import FacultyPortalView from './components/faculty/FacultyPortalView';
 import PortalLoginView from './components/PortalLoginView';
 import AdminAttendanceView from './components/AdminAttendanceView';
+import AnalyticsReportsView from './components/AnalyticsReportsView';
 import LoginModal from './components/LoginModal';
 import { api } from './api';
 import { Database, ShieldAlert, Cpu, Users, Gavel, FileText, Grid, Eye, LogOut, UserCheck, Camera, Calendar, HelpCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -386,6 +387,15 @@ export default function App() {
             <span>Step 6: Cheating & Incidents (UFM)</span>
           </button>
 
+          {/* Module 10: Analytics & Reports */}
+          <button
+            className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('analytics')}
+          >
+            <BarChart3 size={16} />
+            <span>Analytics & Reports (Module 10)</span>
+          </button>
+
           {/* Module 11: Audit Trail & Security */}
           <button
             className={`tab-btn ${activeTab === 'audit-logs' ? 'active' : ''}`}
@@ -447,6 +457,10 @@ export default function App() {
             user={user} 
             onNavigateToStep={setActiveTab} 
           />
+        )}
+
+        {activeTab === 'analytics' && (
+          <AnalyticsReportsView user={user} />
         )}
 
         {activeTab === 'audit-logs' && (
