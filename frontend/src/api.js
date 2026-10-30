@@ -93,6 +93,12 @@ export const api = {
     });
   },
 
+  clearEntityType(type) {
+    return this.request(`/master-data/clear/${type}`, {
+      method: 'DELETE',
+    });
+  },
+
   uploadCSV(type, file) {
     const formData = new FormData();
     formData.append('file', file);

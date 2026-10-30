@@ -55,9 +55,6 @@ class FacultyPortalService {
         // May already be modified or non-fatal
       }
 
-      // 3. Ensure sample faculty and duties exist
-      await this.ensureSampleFacultyAndDuties();
-
       this.schemaInitialized = true;
     } catch (err) {
       console.warn('Schema extension notice in FacultyPortalService:', err.message);
@@ -908,7 +905,6 @@ ExamSphere Automated Examination Controller
    */
   async getFacultySummaryMetrics({ facultyId = null, email = null } = {}) {
     await this.ensureSchemaExtensions();
-    await this.seedDemoDoubtRequestsIfEmpty();
 
     let dutiesSql = 'SELECT COUNT(*) as total_duties, SUM(CASE WHEN status = "CONFIRMED" THEN 1 ELSE 0 END) as confirmed_duties FROM invigilation_duties WHERE 1=1';
     let doubtsSql = `

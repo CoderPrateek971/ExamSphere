@@ -50,7 +50,6 @@ class DutyService {
    * Fetch complete duty roster with joined details
    */
   async getDutyRoster() {
-    await this.ensureSampleExamsExist();
     const sql = `
       SELECT 
         id.id,

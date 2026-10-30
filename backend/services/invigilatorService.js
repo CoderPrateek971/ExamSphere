@@ -79,9 +79,6 @@ class InvigilatorService {
    * Get all duties for a given faculty member (or all duties for admin)
    */
   async getDutiesForFaculty(facultyId = null, userRole = 'FACULTY') {
-    // Ensure demo duties exist if table is blank
-    await this.seedDemoDutiesIfEmpty();
-
     let sql = `
       SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status AS duty_status, id.status, id.created_at,
              e.exam_name, e.exam_type, e.exam_date, e.start_time, e.end_time, e.duration_minutes,

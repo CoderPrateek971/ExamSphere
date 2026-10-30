@@ -44,14 +44,34 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
   }, [activeSubTab, user]);
 
   const handleDelete = async (id) => {
-    if (window.confirm(`Are you sure you want to delete this ${activeSubTab.slice(0, -1)}?`)) {
-      try {
-        await api.deleteEntity(activeSubTab, id);
-        fetchRecords();
-        if (onDataChange) onDataChange();
-      } catch (err) {
-        setData(prev => prev.filter(item => item.id !== id));
-      }
+    // Directly remove item without confirmation popup
+    setData(prev => prev.filter(item => item.id !== id));
+    try {
+      await api.deleteEntity(activeSubTab, id);
+      fetchRecords();
+      if (onDataChange) onDataChange();
+    } catch (err) {
+      console.error('Delete failed:', err.message);
+      setFeedback({ type: 'error', text: `Failed to delete record: ${err.message}` });
+      fetchRecords();
+    }
+  };
+
+  const handleClearCurrentCategory = async () => {
+    // Directly remove all items of current tab without confirmation popup
+    setLoading(true);
+    setFeedback(null);
+    setData([]);
+    try {
+      const res = await api.clearEntityType(activeSubTab);
+      await fetchRecords();
+      if (onDataChange) onDataChange();
+      setFeedback({ type: 'success', text: res.message || `All ${activeSubTab} deleted successfully.` });
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || `Failed to delete ${activeSubTab}.` });
+      fetchRecords();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,11 +91,10 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
   };
 
   const handleResetDatabase = async () => {
-    if (!window.confirm('Are you sure you want to completely clear all data from the database? This will remove all courses, rooms, faculty, students, exams, and duties so you can start with a fresh upload.')) {
-      return;
-    }
+    // Directly clear all database records without confirmation popup
     setLoading(true);
     setFeedback(null);
+    setData([]);
     try {
       const res = await api.resetDatabase();
       await fetchRecords();
@@ -83,6 +102,7 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
       setFeedback({ type: 'success', text: res.message || 'All records successfully cleared from the database!' });
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Failed to reset database.' });
+      fetchRecords();
     } finally {
       setLoading(false);
     }
@@ -217,6 +237,19 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
           <button className="btn btn-secondary" onClick={fetchRecords} title="Refresh Records">
             <RefreshCw size={15} />
           </button>
+
+          {data.length > 0 && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleClearCurrentCategory} 
+              disabled={loading}
+              style={{ borderColor: 'rgba(244, 63, 94, 0.35)', color: '#fb7185' }}
+              title={`Delete all ${activeSubTab} directly`}
+            >
+              <Trash2 size={14} />
+              <span>Delete All {activeSubTab.charAt(0).toUpperCase() + activeSubTab.slice(1)}</span>
+            </button>
+          )}
 
           <button className="btn btn-emerald" onClick={() => setIsCSVModalOpen(true)}>
             <Upload size={15} />

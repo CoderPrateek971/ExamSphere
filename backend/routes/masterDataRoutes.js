@@ -69,6 +69,7 @@ router.post('/reset-database', async (req, res) => {
     await query('TRUNCATE TABLE room_constraints');
     await query('TRUNCATE TABLE exams');
     await query('TRUNCATE TABLE course_section_instructors');
+    await query('TRUNCATE TABLE student_courses');
     await query('TRUNCATE TABLE courses');
     await query('TRUNCATE TABLE rooms');
     await query('TRUNCATE TABLE faculty');
@@ -77,6 +78,38 @@ router.post('/reset-database', async (req, res) => {
     await query('TRUNCATE TABLE audit_logs');
     await query('SET FOREIGN_KEY_CHECKS = 1');
     res.json({ success: true, message: 'All database records cleared successfully. System is now clean and ready for fresh file uploads.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Delete all records of a specific entity type ('courses', 'rooms', 'faculty', 'students') directly
+router.delete('/clear/:entityType', async (req, res) => {
+  const { entityType } = req.params;
+  const validTypes = ['students', 'faculty', 'courses', 'rooms'];
+  if (!validTypes.includes(entityType)) {
+    return res.status(400).json({ success: false, message: `Invalid entity type: ${entityType}` });
+  }
+  try {
+    const { query } = require('../config/db');
+    await query('SET FOREIGN_KEY_CHECKS = 0');
+    if (entityType === 'courses') {
+      await query('TRUNCATE TABLE courses');
+      await query('TRUNCATE TABLE student_courses');
+      await query('TRUNCATE TABLE course_section_instructors');
+    } else if (entityType === 'rooms') {
+      await query('TRUNCATE TABLE rooms');
+      await query('TRUNCATE TABLE room_constraints');
+    } else if (entityType === 'faculty') {
+      await query('TRUNCATE TABLE faculty');
+      await query('DELETE FROM users WHERE role = "FACULTY"');
+    } else if (entityType === 'students') {
+      await query('TRUNCATE TABLE students');
+      await query('TRUNCATE TABLE student_courses');
+      await query('DELETE FROM users WHERE role = "STUDENT"');
+    }
+    await query('SET FOREIGN_KEY_CHECKS = 1');
+    res.json({ success: true, message: `All ${entityType} deleted successfully.` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
