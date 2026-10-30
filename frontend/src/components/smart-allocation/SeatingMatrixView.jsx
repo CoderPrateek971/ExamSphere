@@ -289,14 +289,8 @@ export default function SeatingMatrixView({ initialExamId = null }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '780px', marginBottom: '1.25rem', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f3f4f6' }}>
-                Hall {gridData.room.room_number} ({gridData.room.building} - Floor {gridData.room.floor})
+                Hall {gridData.room.room_number} ({gridData.room.building})
               </h3>
-              {gridData.room.has_camera && (
-                <span className="badge badge-cyan" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <Video size={13} />
-                  CCTV Enabled
-                </span>
-              )}
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>

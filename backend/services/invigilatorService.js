@@ -86,7 +86,7 @@ class InvigilatorService {
       SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status AS duty_status, id.status, id.created_at,
              e.exam_name, e.exam_type, e.exam_date, e.start_time, e.end_time, e.duration_minutes,
              c.id AS course_id, c.course_code, c.course_name, c.department AS course_department, c.department AS course_dept, c.semester,
-             r.room_number, r.building, r.floor, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count,
+             r.room_number, r.building, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count,
              f.faculty_code, f.name AS faculty_name, f.email AS faculty_email, f.department AS faculty_department, f.designation,
              (SELECT COUNT(*) FROM seat_allocations sa WHERE sa.exam_id = id.exam_id AND sa.room_id = id.room_id) AS allocated_students_count,
              (SELECT COUNT(*) FROM attendance att WHERE att.exam_id = id.exam_id AND att.room_id = id.room_id AND att.status = 'PRESENT') AS present_count,
@@ -162,7 +162,7 @@ class InvigilatorService {
       SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status, id.status AS duty_status,
              e.exam_name, e.exam_date, e.start_time, e.end_time,
              c.course_code, c.course_name, c.department AS course_dept, c.department AS course_department,
-             r.room_number, r.building, r.floor, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count
+             r.room_number, r.building, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count
       FROM invigilation_duties id
       JOIN exams e ON id.exam_id = e.id
       JOIN courses c ON e.course_id = c.id

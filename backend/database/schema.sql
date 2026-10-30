@@ -130,14 +130,11 @@ CREATE TABLE IF NOT EXISTS faculty (
 -- --------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS rooms (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    room_number VARCHAR(50) NOT NULL UNIQUE,     -- e.g., 'NB214', 'GA204', 'GBL01', 'GA 102'
-    building VARCHAR(50) NOT NULL,               -- e.g., 'NB' (New Block), 'GA' (Gateway Academic), 'GBL'
-    floor INT DEFAULT 1,
-    capacity INT NOT NULL,                       -- e.g., 30, 60, 64, 66, 120
+    room_number VARCHAR(50) NOT NULL UNIQUE,
+    building VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL,
     rows_count INT NOT NULL DEFAULT 5,
     cols_count INT NOT NULL DEFAULT 6,
-    room_type ENUM('CLASSROOM', 'LAB', 'EXAM_HALL', 'AUDITORIUM') DEFAULT 'CLASSROOM',
-    has_camera BOOLEAN DEFAULT TRUE,
     is_available BOOLEAN DEFAULT TRUE,
     special_instructions TEXT NULL,              -- e.g., 'dont use on entire day on thursday'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

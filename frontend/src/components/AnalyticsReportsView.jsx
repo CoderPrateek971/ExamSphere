@@ -284,7 +284,7 @@ export default function AnalyticsReportsView({ user }) {
                       </td>
                       <td>
                         <span style={{ color: 'var(--text-muted)' }}>
-                          {room.building} (Floor {room.floor})
+                          {room.building}
                         </span>
                       </td>
                       <td>{room.capacity} seats</td>

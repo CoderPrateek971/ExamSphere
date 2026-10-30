@@ -243,7 +243,7 @@ All tables exist in `examsphere_db` and are initialized via `backend/database/sc
 2. `courses`: `course_code`, `course_name`, `department`, `semester`, `difficulty_level` (Module 2).
 3. `students`: `enrollment_no`, `name`, `email`, `department`, `semester`, `program` (Module 2).
 4. `faculty`: `faculty_code`, `name`, `email`, `department`, `designation`, `seniority_level`, `max_duties` (Module 2).
-5. `rooms`: `room_number`, `building`, `floor`, `capacity`, `rows_count`, `cols_count`, `has_camera` (Module 2).
+5. `rooms`: `room_number`, `building`, `capacity`, `rows_count`, `cols_count` (Module 2).
 6. `exams`: `course_id`, `exam_name`, `exam_type`, `exam_date`, `start_time`, `end_time`, `duration_minutes`, `status` (Module 3).
 7. `seat_allocations`: Unique mapping of `(exam_id, room_id, row_num, col_num)` and `(exam_id, student_id)` (Module 4).
 8. `invigilation_duties`: Unique mapping of `(exam_id, room_id)` with `faculty_id` and optional `substitute_faculty_id` (Module 5).
