@@ -16,7 +16,6 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
   const [activeSubTab, setActiveSubTab] = useState('courses');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const [search, setSearch] = useState('');
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -72,21 +71,6 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
       fetchRecords();
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSeedBmuData = async () => {
-    setSeeding(true);
-    setFeedback(null);
-    try {
-      await api.seedBmuExamData();
-      await fetchRecords();
-      if (onDataChange) onDataChange();
-      setFeedback({ type: 'success', text: 'BMU Examination dataset (March 2026) loaded successfully! Courses, rooms, and faculty are now active.' });
-    } catch (err) {
-      setFeedback({ type: 'error', text: err.message || 'Failed to load examination dataset.' });
-    } finally {
-      setSeeding(false);
     }
   };
 
@@ -159,17 +143,6 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
           >
             <Trash2 size={14} />
             <span>Clear All Data</span>
-          </button>
-
-          <button 
-            className="btn btn-secondary" 
-            onClick={handleSeedBmuData} 
-            disabled={seeding}
-            style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
-            title="Load real March 2026 Exam Data directly from workbook"
-          >
-            <Zap size={14} />
-            <span>{seeding ? 'Loading Dataset...' : 'Load Builtin Exam Dataset'}</span>
           </button>
 
           {onNavigateToStep && (
@@ -289,16 +262,12 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
               No {activeSubTab} data found in the database.
             </p>
             <p style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Upload your {activeSubTab} CSV file or click "Load Uploaded BMU Exam Dataset" to populate real records.
+              Upload your {activeSubTab} (.xlsx or .csv) file to populate records.
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
               <button className="btn btn-emerald" onClick={() => setIsCSVModalOpen(true)}>
                 <Upload size={14} />
                 <span>Upload {activeSubTab.toUpperCase()} (.xlsx / .csv)</span>
-              </button>
-              <button className="btn btn-secondary" onClick={handleSeedBmuData} disabled={seeding}>
-                <Zap size={14} color="#fbbf24" />
-                <span>Load Uploaded BMU Exam Dataset</span>
               </button>
             </div>
           </div>

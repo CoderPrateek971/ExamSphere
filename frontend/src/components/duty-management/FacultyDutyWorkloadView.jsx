@@ -296,20 +296,17 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
         api.getEntities('faculty').catch(() => ({ data: [] }))
       ]);
 
-      if (rosterRes.data && Array.isArray(rosterRes.data)) {
-        setRoster(rosterRes.data);
-      }
-      if (facultyRes.data && facultyRes.data.length > 0) {
-        setFacultyList(facultyRes.data);
-      } else if (workloadRes.data && workloadRes.data.facultyList && workloadRes.data.facultyList.length > 0) {
-        setFacultyList(workloadRes.data.facultyList);
-      }
-      if (examsRes.data && examsRes.data.length > 0) {
-        setExams(examsRes.data);
-      }
-      if (roomsRes.data && roomsRes.data.length > 0) {
-        setRooms(roomsRes.data);
-      }
+      setRoster(Array.isArray(rosterRes.data) ? rosterRes.data : []);
+
+      const loadedFaculty = (facultyRes.data && facultyRes.data.length > 0)
+        ? facultyRes.data
+        : (workloadRes.data && workloadRes.data.facultyList && workloadRes.data.facultyList.length > 0)
+          ? workloadRes.data.facultyList
+          : [];
+      setFacultyList(loadedFaculty);
+
+      setExams(Array.isArray(examsRes.data) ? examsRes.data : []);
+      setRooms(Array.isArray(roomsRes.data) ? roomsRes.data : []);
     } catch (err) {
       console.warn('Backend load note:', err.message);
     } finally {
@@ -2107,11 +2104,15 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                   required
                 >
                   <option value="">-- Choose Teacher --</option>
-                  {facultyWithStats.map(f => (
-                    <option key={f.id} value={f.id} disabled={f.isOnLeave}>
-                      {f.name} ({f.department}) {f.isOnLeave ? '[On Leave - Unavailable]' : `[Today's Duties: ${f.assigned_duties}/${f.max_duties}]`}
-                    </option>
-                  ))}
+                  {facultyWithStats.length === 0 ? (
+                    <option value="" disabled>No faculty found. Please upload faculty in Step 1 (Resource Records).</option>
+                  ) : (
+                    facultyWithStats.map(f => (
+                      <option key={f.id} value={f.id} disabled={f.isOnLeave}>
+                        {f.name} ({f.department}) {f.isOnLeave ? '[On Leave - Unavailable]' : `[Today's Duties: ${f.assigned_duties}/${f.max_duties}]`}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

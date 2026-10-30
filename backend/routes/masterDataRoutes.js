@@ -115,15 +115,4 @@ router.delete('/clear/:entityType', async (req, res) => {
   }
 });
 
-// Seed uploaded BMU Examination Dataset directly into database
-router.post('/seed-bmu-data', async (req, res) => {
-  try {
-    const { seedBmuExamData } = require('../database/seedBmuExamData');
-    await seedBmuExamData();
-    res.json({ success: true, message: 'BML Munjal University Exam Dataset loaded successfully into master database!' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
 module.exports = router;

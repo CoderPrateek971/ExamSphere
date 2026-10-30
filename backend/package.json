@@ -19,9 +19,7 @@
     "test:designation": "node tests/test-designation-levels.js",
     "test:smart": "node tests/test-smart-allocation.js",
     "test:incident": "node tests/test-incident-management.js",
-    "test:api": "node tests/test-api-flow.js",
-    "seed": "node database/seedBmuExamData.js",
-    "seed:bmu": "node database/seedBmuExamData.js"
+    "test:api": "node tests/test-api-flow.js"
   },
   "keywords": [
     "exam",

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const { query } = require('../config/db');
-const { parseAndValidateSpreadsheet, normalizeRow } = require('../utils/csvParser');
+const { parseAndValidateSpreadsheet, normalizeRow, parseSemester } = require('../utils/csvParser');
 
 const { mapDesignationToSeniority } = require('../utils/designationHelper');
 
@@ -24,12 +24,12 @@ const INGESTION_STRATEGIES = {
   students: async (rows) => {
     let count = 0;
     for (const row of rows) {
-      const semester = extractNumber(row.semester, 1);
+      const finalSemester = parseSemester(row.semester || row.sem || row.term || row.stream_section || row.batch);
       const [result] = await query(
         `INSERT INTO students (enrollment_no, name, email, department, semester, program)
          VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), department = VALUES(department), semester = VALUES(semester), program = VALUES(program)`,
-        [row.enrollment_no, row.name, row.email, row.department, semester, row.program || 'B.Tech']
+        [row.enrollment_no, row.name, row.email, row.department || 'CSE', finalSemester, row.program || 'B.Tech']
       );
 
       // Resolve student id
@@ -82,13 +82,30 @@ const INGESTION_STRATEGIES = {
   courses: async (rows) => {
     let count = 0;
     for (const row of rows) {
-      const semester = extractNumber(row.semester, 1);
-      const difficulty = extractNumber(row.difficulty_level, 3);
+      const sem = parseSemester(row.semester || row.sem || row.term || row.target_batch);
       await query(
-        `INSERT INTO courses (course_code, course_name, department, semester, difficulty_level)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE course_name = VALUES(course_name), department = VALUES(department), semester = VALUES(semester), difficulty_level = VALUES(difficulty_level)`,
-        [row.course_code, row.course_name, row.department, semester, difficulty]
+        `INSERT INTO courses (course_code, course_name, department, semester, eligible_branches, credits, target_batch, course_coordinator_name, difficulty_level)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+            course_name = VALUES(course_name), 
+            department = VALUES(department), 
+            semester = VALUES(semester),
+            eligible_branches = COALESCE(VALUES(eligible_branches), eligible_branches),
+            credits = COALESCE(VALUES(credits), credits),
+            target_batch = COALESCE(VALUES(target_batch), target_batch),
+            course_coordinator_name = COALESCE(VALUES(course_coordinator_name), course_coordinator_name),
+            difficulty_level = VALUES(difficulty_level)`,
+        [
+          row.course_code,
+          row.course_name,
+          row.department || 'CSE',
+          sem,
+          row.eligible_branches || row.department || 'CSE',
+          parseFloat(row.credits) || 3.0,
+          row.target_batch || null,
+          row.course_coordinator_name || null,
+          parseInt(row.difficulty_level, 10) || 3
+        ]
       );
       count++;
     }
