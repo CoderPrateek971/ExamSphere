@@ -7,8 +7,13 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node database/init-db.js",
-    "test": "node tests/test-auth-and-masterdata.js && node tests/test-duty-workload.js",
-    "test:duty": "node tests/test-duty-workload.js"
+    "test": "node tests/test-auth-and-masterdata.js && node tests/test-duty-workload.js && node tests/test-smart-allocation.js",
+    "test:all": "node tests/test-auth-and-masterdata.js && node tests/test-duty-workload.js && node tests/test-smart-allocation.js",
+    "test:auth": "node tests/test-auth-and-masterdata.js",
+    "test:duty": "node tests/test-duty-workload.js",
+    "test:smart": "node tests/test-smart-allocation.js",
+    "test:incident": "node tests/test-incident-management.js",
+    "test:api": "node tests/test-api-flow.js"
   },
   "keywords": ["exam", "management", "system", "se"],
   "author": "ExamSphere Team",

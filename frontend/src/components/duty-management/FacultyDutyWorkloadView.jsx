@@ -4,8 +4,9 @@ import {
   Users, Scale, Calendar, Clock, RefreshCw, 
   Trash2, UserCheck, CheckCircle2, UserX, AlertCircle, Plus, 
   Search, ShieldAlert, ArrowRight, RotateCcw, Info, Sun, Moon, Sunrise,
-  History, FileText, UserMinus
+  History, FileText, UserMinus, Mail
 } from 'lucide-react';
+import EmailDutyModal from './EmailDutyModal';
 
 // =====================================================================
 // UTILITY FUNCTIONS: TIME CONVERSION & OVERLAP CHECKING
@@ -226,7 +227,7 @@ function DayScheduleTimeline({ todayDuties = [], queryStart, queryEnd }) {
   );
 }
 
-export default function FacultyDutyWorkloadView() {
+export default function FacultyDutyWorkloadView({ user }) {
   const [activeTab, setActiveTab] = useState('roster'); // 'roster' | 'availability' | 'balancing'
   
   // Data State - Starts completely clean (0 duties initially so user can do all actions themselves!)
@@ -236,6 +237,13 @@ export default function FacultyDutyWorkloadView() {
   const [rooms, setRooms] = useState(DEFAULT_ROOMS);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // EmailJS Duty Dispatch Modal State
+  const [emailModalDuty, setEmailModalDuty] = useState(null);
+
+  const handleEmailSent = (dutyId) => {
+    setRoster(prev => prev.map(d => d.id === dutyId ? { ...d, emailed: true } : d));
+  };
 
   // Search & Filter state for Roster
   const [rosterSearch, setRosterSearch] = useState('');
@@ -1211,7 +1219,23 @@ export default function FacultyDutyWorkloadView() {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button 
+                              className="btn btn-secondary"
+                              style={{ 
+                                padding: '0.35rem 0.65rem', 
+                                fontSize: '0.74rem', 
+                                color: duty.emailed ? '#34d399' : '#38bdf8', 
+                                borderColor: duty.emailed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)',
+                                background: duty.emailed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(56, 189, 248, 0.08)'
+                              }}
+                              onClick={() => setEmailModalDuty(duty)}
+                              title="Send automated duty email to teacher via EmailJS"
+                            >
+                              <Mail size={13} />
+                              <span>{duty.emailed ? 'Emailed' : 'Email Duty'}</span>
+                            </button>
+
                             <button 
                               className="btn btn-secondary"
                               style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
@@ -2200,6 +2224,15 @@ export default function FacultyDutyWorkloadView() {
           </div>
         </div>
       )}
+
+      {/* EmailJS Duty Dispatch Modal */}
+      <EmailDutyModal
+        isOpen={Boolean(emailModalDuty)}
+        duty={emailModalDuty}
+        user={user}
+        onClose={() => setEmailModalDuty(null)}
+        onEmailSent={handleEmailSent}
+      />
 
     </div>
   );
