@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileText, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, AlertCircle, X, FileSpreadsheet } from 'lucide-react';
 import { api } from '../api';
 
 export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSuccess }) {
@@ -14,8 +14,10 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-      if (!selected.name.endsWith('.csv')) {
-        setError('Only .csv files are supported.');
+      const ext = '.' + selected.name.split('.').pop().toLowerCase();
+      const validExtensions = ['.csv', '.xlsx', '.xls'];
+      if (!validExtensions.includes(ext)) {
+        setError('Only Excel (.xlsx, .xls) and CSV (.csv) files are supported.');
         return;
       }
       setFile(selected);
@@ -33,20 +35,22 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
       setResult(res.summary);
       onUploadSuccess();
     } catch (err) {
-      setError(err.message || 'CSV upload failed');
+      setError(err.message || 'Spreadsheet ingestion failed');
     } finally {
       setLoading(false);
     }
   };
+
+  const isExcel = file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'));
 
   return (
     <div className="modal-overlay">
       <div className="modal-content">
         <div className="modal-header">
           <div>
-            <h3>Bulk CSV Ingestion</h3>
+            <h3>Bulk Spreadsheet Ingestion</h3>
             <p style={{ fontSize: '0.82rem', color: '#9ca3af' }}>
-              Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong>
+              Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong> in Excel (.xlsx) or CSV (.csv)
             </p>
           </div>
           <button className="close-btn" onClick={onClose}><X size={20} /></button>
@@ -73,7 +77,12 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
                 <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Errors</div>
               </div>
             </div>
-            <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '1rem' }}>
+            {result.sheetSummary && (
+              <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1rem' }}>
+                Sheets processed: {result.sheetSummary.courses} courses, {result.sheetSummary.rooms} rooms, {result.sheetSummary.faculty} faculty.
+              </div>
+            )}
+            <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '0.5rem' }}>
               Done & View Records
             </button>
           </div>
@@ -83,17 +92,21 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
               className="dropzone"
               onClick={() => fileInputRef.current?.click()}
             >
-              <UploadCloud size={40} color="#6366f1" style={{ margin: '0 auto 0.75rem auto' }} />
+              {isExcel ? (
+                <FileSpreadsheet size={40} color="#10b981" style={{ margin: '0 auto 0.75rem auto' }} />
+              ) : (
+                <UploadCloud size={40} color="#6366f1" style={{ margin: '0 auto 0.75rem auto' }} />
+              )}
               <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                {file ? file.name : 'Click to select CSV file'}
+                {file ? file.name : 'Click to select Excel (.xlsx) or CSV (.csv) file'}
               </div>
               <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '0.3rem' }}>
-                {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Supports standard UTF-8 .csv files'}
+                {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Supports Microsoft Excel (.xlsx, .xls) and standard CSV files'}
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
@@ -106,7 +119,7 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
                 disabled={!file || loading}
                 onClick={handleUpload}
               >
-                {loading ? 'Processing CSV...' : 'Ingest to MySQL'}
+                {loading ? 'Processing Spreadsheet...' : 'Ingest to Database'}
               </button>
             </div>
           </>

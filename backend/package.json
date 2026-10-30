@@ -13,7 +13,8 @@
     "test:duty": "node tests/test-duty-workload.js",
     "test:attendance": "node tests/test-invigilator-attendance.js",
     "test:faculty": "node tests/test-faculty-portal.js",
-    "seed": "node database/seedDemoData.js"
+    "seed": "node database/seedDemoData.js",
+    "seed:bmu": "node database/seedBmuExamData.js"
   },
   "keywords": [
     "exam",
@@ -32,7 +33,8 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.9.7",
-    "nodemailer": "^10.1.6"
+    "nodemailer": "^10.1.6",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

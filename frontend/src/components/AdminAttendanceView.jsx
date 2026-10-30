@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { api, getFullPhotoUrl } from '../api';
 
-export default function AdminAttendanceView({ user }) {
+export default function AdminAttendanceView({ user, onNavigateToStep }) {
   // Data state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -197,6 +197,62 @@ export default function AdminAttendanceView({ user }) {
 
   return (
     <div className="admin-attendance-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Workflow Navigation Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, rgba(6,182,212,0.12), rgba(244,63,94,0.12))',
+        border: '1px solid rgba(6,182,212,0.3)',
+        borderRadius: '10px',
+        padding: '0.85rem 1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{
+            background: '#06b6d4',
+            color: '#000',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 800
+          }}>5</span>
+          <div>
+            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 5: Exam Hall Invigilation & Live Attendance</strong>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
+              Real-time monitoring of invigilators assigned in Step 4 and student seats allocated in Step 3. Records booklet numbers & biometric verification.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => onNavigateToStep('duty-management')}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <span>⬅️ Back to Step 4: Duty Allocation</span>
+            </button>
+          )}
+
+          {onNavigateToStep && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => onNavigateToStep('incident-management')}
+              style={{ fontWeight: 600 }}
+            >
+              <span>View Cheating & Incident Records</span>
+              <ChevronRight size={15} />
+            </button>
+          )}
+        </div>
+      </div>
       {/* Toast Notification */}
       {toastMsg && (
         <div

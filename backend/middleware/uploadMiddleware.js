@@ -19,22 +19,35 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for CSV files
-const csvFileFilter = (req, file, cb) => {
+// File filter for Excel (.xlsx, .xls) and CSV (.csv) files
+const spreadsheetFileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  if (ext === '.csv' || file.mimetype === 'text/csv' || file.mimetype === 'application/vnd.ms-excel') {
+  const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+  const allowedMimeTypes = [
+    'text/csv',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/octet-stream',
+    'application/wps-office.xlsx'
+  ];
+
+  if (allowedExtensions.includes(ext) || allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only CSV files (.csv) are allowed.'), false);
+    cb(new Error('Invalid file format. Only Excel spreadsheets (.xlsx, .xls) and CSV files (.csv) are supported.'), false);
   }
 };
 
-const uploadCSV = multer({
+const uploadSpreadsheet = multer({
   storage: storage,
-  fileFilter: csvFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  fileFilter: spreadsheetFileFilter,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit for large multi-sheet workbooks
 });
 
+// Alias for backward compatibility
+const uploadCSV = uploadSpreadsheet;
+
 module.exports = {
+  uploadSpreadsheet,
   uploadCSV
 };

@@ -37,6 +37,24 @@ async function getSystemSummary(req, res) {
     const [[{ courseCount }]] = await query('SELECT COUNT(*) as courseCount FROM courses');
     const [[{ roomCount }]] = await query('SELECT COUNT(*) as roomCount FROM rooms');
     const [[{ examCount }]] = await query('SELECT COUNT(*) as examCount FROM exams');
+    
+    let seatingCount = 0;
+    try {
+      const [[sRow]] = await query('SELECT COUNT(DISTINCT exam_id) as seatingCount FROM seat_allocations');
+      seatingCount = sRow?.seatingCount || 0;
+    } catch {}
+
+    let dutyCount = 0;
+    try {
+      const [[dRow]] = await query('SELECT COUNT(*) as dutyCount FROM invigilation_duties');
+      dutyCount = dRow?.dutyCount || 0;
+    } catch {}
+
+    let incidentCount = 0;
+    try {
+      const [[iRow]] = await query('SELECT COUNT(*) as incidentCount FROM ufm_reports');
+      incidentCount = iRow?.incidentCount || 0;
+    } catch {}
 
     res.json({
       success: true,
@@ -45,7 +63,10 @@ async function getSystemSummary(req, res) {
         faculty: facultyCount,
         courses: courseCount,
         rooms: roomCount,
-        exams: examCount
+        exams: examCount,
+        seatingCount,
+        dutyCount,
+        incidentCount
       }
     });
   } catch (error) {
