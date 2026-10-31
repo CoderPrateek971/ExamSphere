@@ -15,7 +15,7 @@ export default function EmailNotificationModal({
   if (!isOpen) return null;
 
   const recipient = notification?.recipient_email || doubt?.faculty_email || 'faculty@examsphere.edu';
-  const subject = notification?.subject || `[ExamSphere URGENT] Student Doubt Request in Room ${doubt?.room_number || 'R-101'} for Exam ${doubt?.exam_name || 'Examination'}`;
+  const subject = notification?.subject || `Question Paper Doubt in Room ${doubt?.room_number || 'R-101'} for Exam ${doubt?.exam_name || 'Examination'}`;
   const sentTime = notification?.sent_at || doubt?.created_at || new Date().toISOString();
   
   const emailContent = notification?.message || `

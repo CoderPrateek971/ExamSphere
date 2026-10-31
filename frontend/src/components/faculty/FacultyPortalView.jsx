@@ -791,6 +791,11 @@ export default function FacultyPortalView({ user }) {
           room_id: selectedDutyForDoubt.room_id,
           room_number: selectedDutyForDoubt.room_number
         } : null}
+        invigilatorUser={{
+          ...user,
+          name: selectedDutyForDoubt?.teacher_name || selectedDutyForDoubt?.faculty_name || user?.name || 'Exam Hall Invigilator',
+          faculty_id: selectedDutyForDoubt?.faculty_id || user?.faculty_id || user?.id
+        }}
         onSuccess={() => {
           showNotification('Doubt support request submitted & email dispatched to subject faculty!');
           loadData();

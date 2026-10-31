@@ -181,11 +181,13 @@ class InvigilatorService {
       SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status, id.status AS duty_status,
              e.exam_name, e.exam_date, e.start_time, e.end_time,
              c.course_code, c.course_name, c.department AS course_dept, c.department AS course_department,
-             r.room_number, r.building, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count
+             r.room_number, r.building, r.capacity, r.capacity AS room_capacity, r.rows_count, r.cols_count,
+             f.name AS invigilator_name, f.name AS faculty_name, f.email AS invigilator_email
       FROM invigilation_duties id
       JOIN exams e ON id.exam_id = e.id
       JOIN courses c ON e.course_id = c.id
       JOIN rooms r ON id.room_id = r.id
+      LEFT JOIN faculty f ON id.faculty_id = f.id
       WHERE id.id = ?
     `, [dutyId]);
 

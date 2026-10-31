@@ -22,29 +22,34 @@ const {
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 const { uploadCSV } = require('../middleware/uploadMiddleware');
 
-// All master data endpoints require authentication & ADMIN role
-router.use(verifyToken, requireRole('ADMIN'));
+// Authentication required for all master data endpoints
+router.use(verifyToken);
+
+// Read-only master data endpoints accessible by ADMIN and FACULTY (for doubt routing, invigilation duties, substitute assignments)
+router.get('/students', requireRole('ADMIN', 'FACULTY'), getStudents);
+router.get('/faculty', requireRole('ADMIN', 'FACULTY'), getFaculty);
+router.get('/courses', requireRole('ADMIN', 'FACULTY'), getCourses);
+router.get('/rooms', requireRole('ADMIN', 'FACULTY'), getRooms);
+
+// All mutations, creation, deletions, uploads, and wipes strictly require ADMIN role
+router.use(requireRole('ADMIN'));
 
 // Students
-router.get('/students', getStudents);
 router.post('/students', createStudent);
 router.put('/students/:id', updateStudent);
 router.delete('/students/:id', deleteStudent);
 
 // Faculty
-router.get('/faculty', getFaculty);
 router.post('/faculty', createFaculty);
 router.put('/faculty/:id', updateFaculty);
 router.delete('/faculty/:id', deleteFaculty);
 
 // Courses
-router.get('/courses', getCourses);
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.delete('/courses/:id', deleteCourse);
 
 // Rooms
-router.get('/rooms', getRooms);
 router.post('/rooms', createRoom);
 router.put('/rooms/:id', updateRoom);
 router.delete('/rooms/:id', deleteRoom);

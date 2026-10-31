@@ -51,12 +51,12 @@ class EmailService {
     const serviceId = channelCreds.SERVICE_ID;
     const templateId = channelCreds.TEMPLATE_ID;
     const publicKey = channelCreds.PUBLIC_KEY || this.config.PUBLIC_KEY;
-    const privateKey = this.config.PRIVATE_KEY;
+    const privateKey = channelCreds.PRIVATE_KEY || this.config.PRIVATE_KEY;
 
     const cleanRoom = roomNumber || 'Assigned Room';
     const cleanSeat = seatNumber || 'Assigned Desk';
     const cleanSubject = subject || (channel === 'DOUBT_SUPPORT'
-      ? `[ExamSphere URGENT] Visit Room ${cleanRoom} - Faculty Doubt Request`
+      ? `Question Paper Doubt in Room ${cleanRoom}`
       : channel === 'STUDENTS'
       ? `Exam Seating Allotment: ${examName || 'Examination'} [Room ${cleanRoom}]`
       : `[ExamSphere] Examination Notification: Room ${cleanRoom}`);
@@ -75,9 +75,9 @@ class EmailService {
             // Standard universal EmailJS template parameters
             title: cleanSubject,
             subject: cleanSubject,
-            name: recipientName,
-            time: currentTime,
-            date: new Date().toLocaleDateString('en-US', { dateStyle: 'medium' }),
+            name: channel === 'DOUBT_SUPPORT' ? '' : recipientName,
+            time: channel === 'DOUBT_SUPPORT' ? '' : currentTime,
+            date: channel === 'DOUBT_SUPPORT' ? '' : new Date().toLocaleDateString('en-US', { dateStyle: 'medium' }),
             message: cleanMessage,
             to_email: to,
             to_name: recipientName,
@@ -164,13 +164,11 @@ class EmailService {
   /**
    * Helper to format Room-focused doubt email content
    */
-  formatDoubtRoomEmail({ facultyName, roomNumber, building = 'Academic Block', examName, courseCode, invigilatorName, questionText }) {
+  formatDoubtRoomEmail({ facultyName, roomNumber, building = 'Academic Block', examName, courseCode, invigilatorName, questionText, urgency = 'HIGH' }) {
     const cleanRoom = roomNumber || 'Assigned Room';
-    const subject = `[ExamSphere URGENT] Visit Room ${cleanRoom} - Student Doubt Resolution`;
+    const subject = `Question Paper Doubt in Room ${cleanRoom}`;
 
     const text = `
-URGENT: VISIT ROOM ${cleanRoom} FOR STUDENT DOUBT RESOLUTION
-
 Dear ${facultyName || 'Faculty Member'},
 
 An urgent question paper clarification requires your immediate presence.
@@ -179,10 +177,11 @@ Please visit Room ${cleanRoom} immediately.
 ============================================================
 REQUIRED ROOM TO VISIT: ROOM ${cleanRoom} (${building})
 ============================================================
-Examination:     ${examName || 'Scheduled Exam'} (${courseCode || 'N/A'})
-Room to Visit:   ${cleanRoom} (${building})
-Invigilator:     ${invigilatorName || 'Room Invigilator'}
-Doubt / Query:   "${questionText || 'Student clarification required'}"
+Priority / Urgency: ${urgency}
+Examination:        ${examName || 'Scheduled Exam'} (${courseCode || 'N/A'})
+Room to Visit:      ${cleanRoom} (${building})
+Invigilator:        ${invigilatorName || 'Room Invigilator'}
+Doubt / Query:      "${questionText || 'Student clarification required'}"
 
 Action Required: Please proceed directly to Room ${cleanRoom}.
 ============================================================

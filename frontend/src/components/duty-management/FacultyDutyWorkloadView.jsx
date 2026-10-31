@@ -225,6 +225,21 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
   const [rosterSearch, setRosterSearch] = useState('');
   const [filterDept, setFilterDept] = useState('ALL');
 
+  // Drive live roster labels and status from the browser's local clock.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoDate, setDemoDate] = useState(() => normalizeDate(new Date()));
+  const [demoTime, setDemoTime] = useState(() => {
+    const date = new Date();
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  });
+  const currentDate = demoMode ? demoDate : normalizeDate(now);
+  const currentMinutes = demoMode ? timeToMinutes(demoTime) : now.getHours() * 60 + now.getMinutes();
+
   // Leave / On-Duty Status Map: { [facultyId]: true if on leave }
   const [facultyLeaveMap, setFacultyLeaveMap] = useState({});
 
@@ -235,18 +250,18 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
     }));
   };
 
-  // Availability Checker form - Default: 2026-11-02, 09:30 AM to 12:30 PM
-  const [availParams, setAvailParams] = useState({
-    exam_date: '2026-11-02',
+  // Availability Checker starts on the real local date; its selected slot remains an editable query.
+  const [availParams, setAvailParams] = useState(() => ({
+    exam_date: normalizeDate(new Date()),
     start_time: '09:30',
     end_time: '12:30'
-  });
-
-  // Current System Reference Date - Default: 2026-11-02 (matches scheduled exams)
-  const [currentDate, setCurrentDate] = useState('2026-11-02');
+  }));
 
   // Roster View Mode: 'all' (default so all duties are visible) | 'current_upcoming' | 'history'
   const [rosterViewMode, setRosterViewMode] = useState('all');
+
+  // Confirmation Filter: 'ALL' | 'CONFIRMED' | 'AWAITING'
+  const [confirmationFilter, setConfirmationFilter] = useState('ALL');
 
   // Choice Modal: Asks whether user wants Manual Assign or Auto-Assign
   const [isAssignChoiceModalOpen, setIsAssignChoiceModalOpen] = useState(false);
@@ -257,7 +272,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
     faculty_id: '',
     exam_id: '',
     exam_name: '',
-    exam_date: '2026-11-02',
+    exam_date: normalizeDate(new Date()),
     start_time: '09:30',
     end_time: '12:30',
     room_id: ''
@@ -309,13 +324,6 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
       setExams(loadedExams);
       setRooms(Array.isArray(roomsRes.data) ? roomsRes.data : []);
 
-      if (loadedExams.length > 0) {
-        const firstExamDate = normalizeDate(loadedExams[0].exam_date);
-        if (firstExamDate) {
-          setCurrentDate(prev => (prev === '2026-11-20' ? firstExamDate : prev));
-          setAvailParams(prev => (prev.exam_date === '2026-11-20' ? { ...prev, exam_date: firstExamDate } : prev));
-        }
-      }
     } catch (err) {
       console.warn('Backend load note:', err.message);
     } finally {
@@ -408,8 +416,12 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
 
   // Calculate Overall Fairness Score (computed for active teachers on selected day)
   const activeFacultyList = facultyWithStats.filter(f => !f.isOnLeave);
-  const totalDutiesToday = roster.filter(d => normalizeDate(d.exam_date) === queryDate).length;
-  const dutyCounts = activeFacultyList.map(f => f.todayDutiesCount);
+  const liveTodayDuties = roster.filter(d => normalizeDate(d.exam_date) === currentDate);
+  const totalDutiesToday = liveTodayDuties.length;
+  const dutyCounts = activeFacultyList.map(f => roster.filter(duty =>
+    (Number(duty.faculty_id) === Number(f.id) || Number(duty.substitute_faculty_id) === Number(f.id)) &&
+    normalizeDate(duty.exam_date) === currentDate
+  ).length);
   const mean = activeFacultyList.length > 0 ? totalDutiesToday / activeFacultyList.length : 0;
   const variance = activeFacultyList.length > 0
     ? dutyCounts.reduce((acc, c) => acc + Math.pow(c - mean, 2), 0) / activeFacultyList.length
@@ -420,8 +432,12 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
     : Math.max(0, Math.round((1 - (stdDev / (mean + 1))) * 100));
 
   // Overall KPI aggregates for selected date & time:
-  const totalActiveNow = facultyWithStats.reduce((acc, f) => acc + f.activeNowCount, 0);
-  const totalCompletedToday = facultyWithStats.reduce((acc, f) => acc + f.completedTodayCount, 0);
+  const totalActiveNow = liveTodayDuties.filter(duty =>
+    timeToMinutes(duty.start_time) <= currentMinutes && timeToMinutes(duty.end_time) > currentMinutes
+  ).length;
+  const totalCompletedToday = liveTodayDuties.filter(duty =>
+    timeToMinutes(duty.end_time) <= currentMinutes
+  ).length;
   const totalOnLeave = facultyWithStats.filter(f => f.isOnLeave).length;
   const totalActiveFaculty = facultyWithStats.filter(f => !f.isOnLeave).length;
 
@@ -736,7 +752,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
     setRoster(prev => prev.filter(d => d.id !== dutyId));
   };
 
-  const systemDate = normalizeDate(currentDate);
+  const systemDate = currentDate;
 
   // Filter roster by search & department
   const searchedRoster = roster.filter(duty => {
@@ -771,8 +787,14 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
       return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
     });
 
-  // Active displayed roster based on user selected view mode
-  const displayedRoster = 
+  // Faculty confirmation metrics
+  const totalConfirmedDuties = roster.filter(d => d.status === 'CONFIRMED').length;
+  const totalAwaitingDuties = roster.filter(d => d.status !== 'CONFIRMED').length;
+  const confirmedDutiesCount = searchedRoster.filter(d => d.status === 'CONFIRMED').length;
+  const awaitingDutiesCount = searchedRoster.filter(d => d.status !== 'CONFIRMED').length;
+
+  // Active displayed roster based on user selected view mode and confirmation filter
+  const baseRoster = 
     rosterViewMode === 'history' 
       ? pastHistoryRoster 
       : rosterViewMode === 'all' 
@@ -783,6 +805,12 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
             return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
           })
         : currentAndUpcomingRoster;
+
+  const displayedRoster = baseRoster.filter(duty => {
+    if (confirmationFilter === 'CONFIRMED') return duty.status === 'CONFIRMED';
+    if (confirmationFilter === 'AWAITING') return duty.status !== 'CONFIRMED';
+    return true;
+  });
 
   // Calculate live count of Free vs Busy vs On Leave for currently selected time slot
   const freeCountForSlot = facultyWithStats.filter(f => f.isFree).length;
@@ -851,9 +879,21 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
       {/* Summary KPI Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
         gap: '0.85rem'
       }}>
+        <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <CheckCircle2 size={13} color="#10b981" /> Faculty Confirmations
+          </span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: totalConfirmedDuties > 0 ? '#34d399' : '#f3f4f6', marginTop: '0.2rem' }}>
+            {totalConfirmedDuties} <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)', fontWeight: 500 }}>/ {roster.length}</span>
+          </div>
+          <span style={{ fontSize: '0.72rem', color: totalAwaitingDuties > 0 ? '#fbbf24' : '#34d399' }}>
+            {totalAwaitingDuties > 0 ? `${totalAwaitingDuties} awaiting confirmation` : 'All faculty confirmed'}
+          </span>
+        </div>
+
         <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Workload Fairness</span>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34d399', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -867,7 +907,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
 
         <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Clock size={13} color="#f87171" /> Active In-Duty Now
+            <Clock size={13} color="#f87171" /> {demoMode ? 'Active at Demo Time' : 'Active In-Duty Now'}
           </span>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: totalActiveNow > 0 ? '#f87171' : '#f3f4f6', marginTop: '0.2rem' }}>
             {totalActiveNow} Invigilating
@@ -877,7 +917,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
 
         <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-            <CheckCircle2 size={13} color="#34d399" /> Completed Today
+            <CheckCircle2 size={13} color="#34d399" /> {demoMode ? 'Completed on Demo Day' : 'Completed Today'}
           </span>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34d399', marginTop: '0.2rem' }}>
             {totalCompletedToday} Completed
@@ -887,12 +927,12 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
 
         <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Calendar size={13} color="#a855f7" /> Today's Total Load
+            <Calendar size={13} color="#a855f7" /> {demoMode ? 'Demo Day Load' : "Today's Total Load"}
           </span>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a855f7', marginTop: '0.2rem' }}>
             {totalDutiesToday} Duties
           </div>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>On {formatDateReadable(availParams.exam_date)}</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>On {formatDateReadable(currentDate)}</span>
         </div>
 
         <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
@@ -946,12 +986,12 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                   ? `Showing Past Duties History (Completed examinations prior to ${formatDateReadable(currentDate)})`
                   : rosterViewMode === 'all'
                     ? 'Showing all invigilation duty records across the academic calendar'
-                    : `Showing Current Day (${formatDateReadable(currentDate)}) & Upcoming Duties sorted chronologically`}
+                    : `${demoMode ? 'Showing Demo Date' : 'Showing Current Day'} (${formatDateReadable(currentDate)}) & Upcoming Duties sorted chronologically`}
               </p>
             </div>
 
             {/* Controls: Search, Assign Choices */}
-            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="duty-roster-toolbar" style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="search-box">
                 <Search size={16} color="#6b7280" />
                 <input
@@ -1010,66 +1050,128 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
             padding: '0.65rem 0.9rem',
             marginBottom: '1rem'
           }}>
-            {/* View Mode Filters: Current & Upcoming vs Past History vs All */}
-            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className={`btn ${rosterViewMode === 'current_upcoming' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
-                onClick={() => setRosterViewMode('current_upcoming')}
-              >
-                <Calendar size={13} />
-                <span>Current & Upcoming ({currentAndUpcomingRoster.length})</span>
-              </button>
+            {/* View Mode Filters & Faculty Confirmation Filter Pills */}
+            <div className="duty-roster-filters" style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="duty-roster-mode-buttons" style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`btn ${rosterViewMode === 'current_upcoming' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+                  onClick={() => setRosterViewMode('current_upcoming')}
+                >
+                  <Calendar size={13} />
+                  <span>Current & Upcoming ({currentAndUpcomingRoster.length})</span>
+                </button>
 
-              <button
-                type="button"
-                className={`btn ${rosterViewMode === 'history' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', borderColor: rosterViewMode === 'history' ? '#818cf8' : 'rgba(255,255,255,0.1)' }}
-                onClick={() => setRosterViewMode('history')}
-              >
-                <History size={13} />
-                <span>Duty History ({pastHistoryRoster.length})</span>
-              </button>
+                <button
+                  type="button"
+                  className={`btn ${rosterViewMode === 'history' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', borderColor: rosterViewMode === 'history' ? '#818cf8' : 'rgba(255,255,255,0.1)' }}
+                  onClick={() => setRosterViewMode('history')}
+                >
+                  <History size={13} />
+                  <span>Duty History ({pastHistoryRoster.length})</span>
+                </button>
 
-              <button
-                type="button"
-                className={`btn ${rosterViewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
-                onClick={() => setRosterViewMode('all')}
-              >
-                <FileText size={13} />
-                <span>All Records ({searchedRoster.length})</span>
-              </button>
+                <button
+                  type="button"
+                  className={`btn ${rosterViewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+                  onClick={() => setRosterViewMode('all')}
+                >
+                  <FileText size={13} />
+                  <span>All Records ({searchedRoster.length})</span>
+                </button>
+              </div>
+
+              {/* Status Filter Pills: Who Confirmed vs Who Has Not */}
+              <div className="duty-roster-confirmation-filter" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '0.2rem 0.4rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, padding: '0 0.35rem' }}>
+                  Confirmation:
+                </span>
+                <button
+                  type="button"
+                  className={`btn ${confirmationFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '0.72rem', padding: '0.22rem 0.55rem' }}
+                  onClick={() => setConfirmationFilter('ALL')}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${confirmationFilter === 'CONFIRMED' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '0.22rem 0.6rem',
+                    background: confirmationFilter === 'CONFIRMED' ? 'rgba(16, 185, 129, 0.3)' : 'transparent',
+                    color: confirmationFilter === 'CONFIRMED' ? '#34d399' : '#10b981',
+                    borderColor: 'rgba(16, 185, 129, 0.45)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}
+                  onClick={() => setConfirmationFilter('CONFIRMED')}
+                >
+                  <CheckCircle2 size={12} />
+                  <span>Confirmed ({confirmedDutiesCount})</span>
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${confirmationFilter === 'AWAITING' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '0.22rem 0.6rem',
+                    background: confirmationFilter === 'AWAITING' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                    color: confirmationFilter === 'AWAITING' ? '#f87171' : '#f87171',
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}
+                  onClick={() => setConfirmationFilter('AWAITING')}
+                >
+                  <Clock size={12} />
+                  <span>Awaiting ({awaitingDutiesCount})</span>
+                </button>
+              </div>
             </div>
 
             {/* Current Reference Date (Allows user to test e.g. "suppose current date is 20") */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem' }}>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-                Current Date:
+            <div className="duty-roster-live-time" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Live local time</span>
+              <span className="live-date-chip" aria-live="off">
+                {now.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                <span aria-hidden="true">·</span>
+                {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
               </span>
-              <input
-                type="date"
-                className="form-control"
-                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', width: 'auto' }}
-                value={currentDate}
-                onChange={(e) => {
-                  setCurrentDate(e.target.value);
-                  setAvailParams(prev => ({ ...prev, exam_date: e.target.value }));
-                }}
-              />
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem', color: '#38bdf8', borderColor: '#38bdf8' }}
-                onClick={() => {
-                  setCurrentDate('2026-11-20');
-                  setAvailParams(prev => ({ ...prev, exam_date: '2026-11-20' }));
-                }}
-                title="Reset reference date to Nov 20, 2026"
-              >
-                Set to Nov 20
-              </button>
+              <label className="demo-clock-toggle">
+                <input type="checkbox" checked={demoMode} onChange={(event) => setDemoMode(event.target.checked)} />
+                <span>Demo time</span>
+              </label>
+              {demoMode && (
+                <div className="demo-clock-controls" aria-label="Set demo date and time">
+                  <input
+                    aria-label="Demo date"
+                    type="date"
+                    value={demoDate}
+                    onChange={(event) => setDemoDate(event.target.value)}
+                  />
+                  <input
+                    aria-label="Demo time"
+                    type="time"
+                    value={demoTime}
+                    onChange={(event) => setDemoTime(event.target.value)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1081,7 +1183,8 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                   <th>Date & Time Slot</th>
                   <th>Room</th>
                   <th>Assigned Teacher</th>
-                  <th>Duty Progress (Real-Time)</th>
+                  <th>Confirmation Status</th>
+                  <th>Duty Progress ({demoMode ? 'Demo' : 'Live'})</th>
                   <th>Daily Load</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -1089,7 +1192,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
               <tbody>
                 {displayedRoster.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
                       <AlertCircle size={32} style={{ margin: '0 auto 0.75rem', color: '#6366f1', opacity: 0.8 }} />
                       <div style={{ fontWeight: 700, color: '#f3f4f6', fontSize: '1.05rem', marginBottom: '0.4rem' }}>
                         {rosterViewMode === 'history' 
@@ -1120,9 +1223,11 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                     const isPast = dutyDate < systemDate;
                     const isFuture = dutyDate > systemDate;
 
-                    const isDutyActive = isToday && doSlotsOverlap(duty.start_time, duty.end_time, availParams.start_time, availParams.end_time);
-                    const isDutyCompleted = isPast || (isToday && (timeToMinutes(duty.end_time) <= querySlotStart));
-                    const isDutyUpcoming = isFuture || (isToday && (timeToMinutes(duty.start_time) >= querySlotEnd));
+                    const dutyStart = timeToMinutes(duty.start_time);
+                    const dutyEnd = timeToMinutes(duty.end_time);
+                    const isDutyActive = isToday && dutyStart <= currentMinutes && dutyEnd > currentMinutes;
+                    const isDutyCompleted = isPast || (isToday && dutyEnd <= currentMinutes);
+                    const isDutyUpcoming = isFuture || (isToday && dutyStart > currentMinutes);
 
                     // Daily duties for this teacher on this exam's date (resets to 0/4 on day change)
                     const teacherDutiesOnDate = roster.filter(d => 
@@ -1146,7 +1251,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                               <span style={{ fontWeight: 600, color: '#e5e7eb' }}>{dateStr}</span>
                               {isToday && (
                                 <span className="badge badge-emerald" style={{ fontSize: '0.65rem', padding: '0.15rem 0.45rem', fontWeight: 700 }}>
-                                  Today
+                                  {demoMode ? 'Demo day' : 'Today'}
                                 </span>
                               )}
                               {isPast && (
@@ -1191,6 +1296,64 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                               </span>
                             )}
                           </div>
+                        </td>
+                        {/* Faculty Confirmation Status */}
+                        <td>
+                          {duty.status === 'CONFIRMED' ? (
+                            <span
+                              className="badge badge-emerald"
+                              style={{
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                padding: '0.28rem 0.65rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                background: 'rgba(16, 185, 129, 0.2)',
+                                color: '#34d399',
+                                border: '1px solid rgba(16, 185, 129, 0.45)'
+                              }}
+                            >
+                              <CheckCircle2 size={13} color="#34d399" />
+                              <span>Confirmed</span>
+                            </span>
+                          ) : duty.status === 'SUBSTITUTED' ? (
+                            <span
+                              className="badge"
+                              style={{
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                padding: '0.28rem 0.65rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                color: '#fbbf24',
+                                border: '1px solid rgba(245, 158, 11, 0.35)'
+                              }}
+                            >
+                              <AlertCircle size={13} color="#fbbf24" />
+                              <span>Substituted</span>
+                            </span>
+                          ) : (
+                            <span
+                              className="badge"
+                              style={{
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                padding: '0.28rem 0.65rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#f87171',
+                                border: '1px solid rgba(239, 68, 68, 0.3)'
+                              }}
+                            >
+                              <Clock size={13} color="#f87171" />
+                              <span>Awaiting Confirmation</span>
+                            </span>
+                          )}
                         </td>
                         {/* Real-Time Duty Progress (Active Now vs Completed vs Upcoming vs Past History) */}
                         <td>
