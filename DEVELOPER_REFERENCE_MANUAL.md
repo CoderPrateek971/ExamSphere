@@ -133,12 +133,6 @@ ExamSphere/
 │   │   ├── passwordHelper.js            # bcrypt.hash & bcrypt.compare utility functions
 │   │   └── csvParser.js                 # Stream reader validating required columns
 │   │
-│   ├── templates/                       # Valid CSV templates for testing bulk uploads
-│   │   ├── students_template.csv
-│   │   ├── faculty_template.csv
-│   │   ├── courses_template.csv
-│   │   └── rooms_template.csv
-│   │
 │   ├── uploads/                         # Temporary disk staging (.gitkeep tracked)
 │   │
 │   └── tests/

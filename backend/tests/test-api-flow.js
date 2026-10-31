@@ -99,8 +99,11 @@ async function testFullFlow() {
 
   // Step 3: Test CSV Bulk Upload for Students
   console.log('\n3️⃣ Uploading sample students CSV (/api/master-data/upload-csv/students)...');
-  const studentCsvPath = path.join(__dirname, '../templates/students_template.csv');
+  const os = require('os');
+  const studentCsvPath = path.join(os.tmpdir(), `temp_students_api_${Date.now()}.csv`);
+  fs.writeFileSync(studentCsvPath, 'enrollment_no,name,email,department,semester,program,enrolled_courses\n990001,Test Flow Student,flow@bmu.edu.in,CSE,4,B.Tech,CSE3005');
   const uploadRes = await uploadFile(token, 'students', studentCsvPath);
+  try { fs.unlinkSync(studentCsvPath); } catch {}
   console.log(' CSV Ingestion Result:', uploadRes.data.summary);
 
   // Step 4: Fetch Ingested Students
