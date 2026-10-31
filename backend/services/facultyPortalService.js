@@ -515,6 +515,7 @@ class FacultyPortalService {
     studentId = null,
     studentRoll = null,
     facultyId,
+    recipientEmail = null,
     questionText,
     urgency = 'HIGH',
     invigilatorId = null,
@@ -607,9 +608,10 @@ class FacultyPortalService {
 
     // Send real email via EmailJS
     let mailResult = { success: false };
+    const destinationEmail = recipientEmail && recipientEmail.trim() ? recipientEmail.trim() : targetFaculty.email;
     try {
       mailResult = await emailService.sendEmail({
-        to: targetFaculty.email,
+        to: destinationEmail,
         subject: emailSubject,
         text: emailBody,
         html: emailData.html,
