@@ -45,7 +45,7 @@ class InvigilatorService {
 
           await query(
             `INSERT INTO invigilation_duties (exam_id, room_id, faculty_id, status)
-             VALUES (?, ?, ?, 'CONFIRMED')
+             VALUES (?, ?, ?, 'ASSIGNED')
              ON DUPLICATE KEY UPDATE status = VALUES(status)`,
             [pair.exam_id, pair.room_id, fac.id]
           );
@@ -60,7 +60,7 @@ class InvigilatorService {
 
           await query(
             `INSERT INTO invigilation_duties (exam_id, room_id, faculty_id, status)
-             VALUES (?, ?, ?, 'CONFIRMED')
+             VALUES (?, ?, ?, 'ASSIGNED')
              ON DUPLICATE KEY UPDATE status = VALUES(status)`,
             [ex.id, rm.id, fac.id]
           );
@@ -140,8 +140,8 @@ class InvigilatorService {
         const rm = rooms[(facultyId - 1) % rooms.length];
         await query(
           `INSERT INTO invigilation_duties (exam_id, room_id, faculty_id, status)
-           VALUES (?, ?, ?, 'CONFIRMED')
-           ON DUPLICATE KEY UPDATE faculty_id = VALUES(faculty_id), status = 'CONFIRMED'`,
+           VALUES (?, ?, ?, 'ASSIGNED')
+           ON DUPLICATE KEY UPDATE faculty_id = VALUES(faculty_id), status = 'ASSIGNED'`,
           [ex.id, rm.id, facultyId]
         );
         const [reFetched] = await query(sql, [facultyId]);

@@ -164,12 +164,17 @@ class EmailService {
   /**
    * Helper to format Room-focused doubt email content
    */
-  formatDoubtRoomEmail({ facultyName, roomNumber, building = 'Academic Block', examName, courseCode, invigilatorName, questionText }) {
+  formatDoubtRoomEmail({ facultyName, roomNumber, building = 'Academic Block', examName, courseCode, invigilatorName, questionText, studentName = null, studentRoll = null }) {
     const cleanRoom = roomNumber || 'Assigned Room';
-    const subject = `[ExamSphere URGENT] Visit Room ${cleanRoom} - Student Doubt Resolution`;
+    const subject = `[ExamSphere URGENT] Visit Room ${cleanRoom} - Question Paper Doubt Resolution`;
+
+    const isGeneral = !studentName || studentName === 'General Room Question' || studentRoll === 'GENERAL';
+    const candidateInfo = isGeneral 
+      ? 'General Classroom / Whole Exam Hall (Paper Ambiguity)' 
+      : `${studentName} (${studentRoll || 'Candidate'})`;
 
     const text = `
-URGENT: VISIT ROOM ${cleanRoom} FOR STUDENT DOUBT RESOLUTION
+URGENT: VISIT ROOM ${cleanRoom} FOR EXAMINATION DOUBT RESOLUTION
 
 Dear ${facultyName || 'Faculty Member'},
 
@@ -181,6 +186,7 @@ REQUIRED ROOM TO VISIT: ROOM ${cleanRoom} (${building})
 ============================================================
 Examination:     ${examName || 'Scheduled Exam'} (${courseCode || 'N/A'})
 Room to Visit:   ${cleanRoom} (${building})
+Scope / Student: ${candidateInfo}
 Invigilator:     ${invigilatorName || 'Room Invigilator'}
 Doubt / Query:   "${questionText || 'Student clarification required'}"
 

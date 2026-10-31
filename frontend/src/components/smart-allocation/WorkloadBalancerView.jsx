@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../api';
 import { 
   Users, Scale, Award, RefreshCw, Sparkles, 
-  Trash2, UserCheck, ShieldAlert, CheckCircle2, UserX, AlertCircle 
+  Trash2, UserCheck, ShieldAlert, CheckCircle2, UserX, AlertCircle, Clock 
 } from 'lucide-react';
 
 export default function WorkloadBalancerView() {
@@ -317,9 +317,17 @@ export default function WorkloadBalancerView() {
                       )}
                     </td>
                     <td>
-                      <span className={`badge ${isSubstituted ? 'badge-amber' : 'badge-emerald'}`}>
-                        {duty.status}
-                      </span>
+                      {isSubstituted ? (
+                        <span className="badge badge-amber">Substituted</span>
+                      ) : (duty.status === 'CONFIRMED' || duty.duty_status === 'CONFIRMED') ? (
+                        <span className="badge badge-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <CheckCircle2 size={12} /> Confirmed
+                        </span>
+                      ) : (
+                        <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }} title="Awaiting faculty member to review and confirm duty">
+                          <Clock size={12} /> Awaiting Confirmation
+                        </span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>

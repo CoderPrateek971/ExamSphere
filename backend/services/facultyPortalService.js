@@ -29,6 +29,19 @@ class FacultyPortalService {
       const [cols] = await query('DESCRIBE doubt_requests');
       const colNames = cols.map(c => c.Field);
 
+      // Make student_id nullable for general whole-room question doubts
+      try {
+        await query('ALTER TABLE doubt_requests MODIFY COLUMN student_id INT NULL');
+      } catch (e) {
+        // Non-fatal if already nullable or constrained
+      }
+
+      if (!colNames.includes('student_name')) {
+        await query('ALTER TABLE doubt_requests ADD COLUMN student_name VARCHAR(150) NULL AFTER student_id');
+      }
+      if (!colNames.includes('student_roll')) {
+        await query('ALTER TABLE doubt_requests ADD COLUMN student_roll VARCHAR(50) NULL AFTER student_name');
+      }
       if (!colNames.includes('invigilator_id')) {
         await query('ALTER TABLE doubt_requests ADD COLUMN invigilator_id INT NULL');
       }
@@ -367,9 +380,9 @@ class FacultyPortalService {
         c.department as course_department,
         r.room_number,
         r.building as room_building,
-        s.name as student_name,
-        s.enrollment_no as student_roll,
-        s.department as student_department,
+        COALESCE(s.name, dr.student_name, 'General Room Question') as student_name,
+        COALESCE(s.enrollment_no, dr.student_roll, 'GENERAL') as student_roll,
+        COALESCE(s.department, c.department, '') as student_department,
         f.name as faculty_name,
         f.email as faculty_email,
         f.faculty_code,
@@ -379,7 +392,7 @@ class FacultyPortalService {
       JOIN exams e ON dr.exam_id = e.id
       JOIN courses c ON e.course_id = c.id
       JOIN rooms r ON dr.room_id = r.id
-      JOIN students s ON dr.student_id = s.id
+      LEFT JOIN students s ON dr.student_id = s.id
       JOIN faculty f ON dr.faculty_id = f.id
       LEFT JOIN faculty inv ON dr.invigilator_id = inv.id
       WHERE 1=1
@@ -451,6 +464,7 @@ class FacultyPortalService {
     roomId,
     studentId = null,
     studentRoll = null,
+    studentName = null,
     facultyId,
     recipientEmail = null,
     questionText,
@@ -466,24 +480,43 @@ class FacultyPortalService {
       throw err;
     }
 
-    // 1. Resolve student record
-    let resolvedStudentId = studentId;
-    if (!resolvedStudentId && studentRoll) {
-      const [sMatch] = await query('SELECT id FROM students WHERE enrollment_no = ?', [studentRoll.trim()]);
-      if (sMatch.length > 0) {
-        resolvedStudentId = sMatch[0].id;
+    // 1. Resolve student record safely (handles specific candidates, general classroom doubts, and nulls)
+    let resolvedStudentId = null;
+    let resolvedStudentName = studentName && studentName.trim() ? studentName.trim() : null;
+    let resolvedStudentRoll = studentRoll && studentRoll.trim() ? studentRoll.trim() : null;
+
+    if (studentId && studentId !== 'GENERAL') {
+      const numId = Number(studentId);
+      if (!isNaN(numId) && numId > 0) {
+        const [sCheck] = await query('SELECT id, name, enrollment_no FROM students WHERE id = ?', [numId]);
+        if (sCheck.length > 0) {
+          resolvedStudentId = sCheck[0].id;
+          resolvedStudentName = sCheck[0].name;
+          resolvedStudentRoll = sCheck[0].enrollment_no;
+        }
       }
     }
 
-    if (!resolvedStudentId) {
-      const [sa] = await query('SELECT student_id FROM seat_allocations WHERE exam_id = ? AND room_id = ? LIMIT 1', [examId, roomId]);
-      if (sa.length > 0) {
-        resolvedStudentId = sa[0].student_id;
-      } else {
-        const [anyStudent] = await query('SELECT id FROM students ORDER BY id ASC LIMIT 1');
-        resolvedStudentId = anyStudent[0]?.id || 1;
+    if (!resolvedStudentId && resolvedStudentRoll && resolvedStudentRoll !== 'GENERAL') {
+      const [sMatch] = await query('SELECT id, name, enrollment_no FROM students WHERE enrollment_no = ?', [resolvedStudentRoll]);
+      if (sMatch.length > 0) {
+        resolvedStudentId = sMatch[0].id;
+        resolvedStudentName = sMatch[0].name;
+        resolvedStudentRoll = sMatch[0].enrollment_no;
       }
     }
+
+    // If no candidate selected or GENERAL specified, default gracefully to General Room Question
+    if (!resolvedStudentId) {
+      resolvedStudentId = null;
+      resolvedStudentName = resolvedStudentName || 'General Room Question';
+      resolvedStudentRoll = resolvedStudentRoll || 'GENERAL';
+    }
+
+    const studentDetails = {
+      name: resolvedStudentName,
+      enrollment_no: resolvedStudentRoll
+    };
 
     // 2. Fetch master details for rich email notification
     const [facultyRows] = await query('SELECT id, name, email, department, user_id FROM faculty WHERE id = ?', [facultyId]);
@@ -505,9 +538,6 @@ class FacultyPortalService {
     const [roomRows] = await query('SELECT id, room_number, building FROM rooms WHERE id = ?', [roomId]);
     const roomDetails = roomRows[0] || { room_number: 'R-101', building: 'Academic Block' };
 
-    const [studentRows] = await query('SELECT id, name, enrollment_no FROM students WHERE id = ?', [resolvedStudentId]);
-    const studentDetails = studentRows[0] || { name: 'Student', enrollment_no: '240101' };
-
     // 3. Resolve invigilator name
     let senderInvigilatorName = invigilatorName;
     if (!senderInvigilatorName && invigilatorId) {
@@ -522,9 +552,9 @@ class FacultyPortalService {
     const cleanUrgency = ['NORMAL', 'HIGH', 'CRITICAL'].includes(urgency) ? urgency : 'HIGH';
     const [insertResult] = await query(
       `INSERT INTO doubt_requests 
-       (exam_id, room_id, student_id, faculty_id, invigilator_id, invigilator_name, question_text, status, urgency, email_sent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, TRUE)`,
-      [examId, roomId, resolvedStudentId, facultyId, invigilatorId || null, senderInvigilatorName, questionText.trim(), cleanUrgency]
+       (exam_id, room_id, student_id, student_name, student_roll, faculty_id, invigilator_id, invigilator_name, question_text, status, urgency, email_sent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, TRUE)`,
+      [examId, roomId, resolvedStudentId, resolvedStudentName, resolvedStudentRoll, facultyId, invigilatorId || null, senderInvigilatorName, questionText.trim(), cleanUrgency]
     );
 
     const doubtId = insertResult.insertId;
@@ -537,7 +567,9 @@ class FacultyPortalService {
       examName: examDetails.exam_name,
       courseCode: examDetails.course_code,
       invigilatorName: senderInvigilatorName,
-      questionText: questionText.trim()
+      questionText: questionText.trim(),
+      studentName: resolvedStudentName,
+      studentRoll: resolvedStudentRoll
     });
 
     const emailSubject = emailData.subject;
@@ -625,12 +657,13 @@ class FacultyPortalService {
     }
 
     const [existing] = await query(`
-      SELECT dr.*, f.name as faculty_name, f.email as faculty_email, r.room_number, e.exam_name, s.name as student_name
+      SELECT dr.*, f.name as faculty_name, f.email as faculty_email, r.room_number, e.exam_name,
+             COALESCE(s.name, dr.student_name, 'General Room Question') as student_name
       FROM doubt_requests dr
       JOIN faculty f ON dr.faculty_id = f.id
       JOIN rooms r ON dr.room_id = r.id
       JOIN exams e ON dr.exam_id = e.id
-      JOIN students s ON dr.student_id = s.id
+      LEFT JOIN students s ON dr.student_id = s.id
       WHERE dr.id = ?
     `, [doubtId]);
 

@@ -581,12 +581,21 @@ class SchedulingService {
       throw err;
     }
 
-    // Calculate duration in minutes if not provided
-    const calculatedDuration = duration_minutes || (timeToMinutes(end_time) - timeToMinutes(start_time)) || 180;
+    // Calculate duration in minutes if not provided or derive from start and end
+    const diffMins = timeToMinutes(end_time) - timeToMinutes(start_time);
+    const calculatedDuration = diffMins > 0 ? diffMins : (duration_minutes || 180);
+
+    let shift = 'MORNING';
+    const startM = timeToMinutes(start_time);
+    if (startM >= 780 && startM <= 1050) {
+      shift = 'AFTERNOON';
+    } else if (startM > 1050) {
+      shift = 'EVENING';
+    }
 
     const [result] = await query(
-      `INSERT INTO exams (course_id, exam_name, exam_type, exam_date, start_time, end_time, duration_minutes, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO exams (course_id, exam_name, exam_type, exam_date, start_time, end_time, duration_minutes, status, shift) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         course_id,
         exam_name,
@@ -595,7 +604,8 @@ class SchedulingService {
         start_time,
         end_time,
         calculatedDuration,
-        status || 'SCHEDULED'
+        status || 'SCHEDULED',
+        shift
       ]
     );
 
@@ -636,7 +646,16 @@ class SchedulingService {
       }
     }
 
-    const calculatedDuration = duration_minutes || (timeToMinutes(targetEnd) - timeToMinutes(targetStart)) || existing.duration_minutes;
+    const diffMins = timeToMinutes(targetEnd) - timeToMinutes(targetStart);
+    const calculatedDuration = diffMins > 0 ? diffMins : (duration_minutes || existing.duration_minutes || 180);
+
+    let shift = 'MORNING';
+    const startM = timeToMinutes(targetStart);
+    if (startM >= 780 && startM <= 1050) {
+      shift = 'AFTERNOON';
+    } else if (startM > 1050) {
+      shift = 'EVENING';
+    }
 
     await query(
       `UPDATE exams 
@@ -646,18 +665,20 @@ class SchedulingService {
            exam_date = COALESCE(?, exam_date),
            start_time = COALESCE(?, start_time),
            end_time = COALESCE(?, end_time),
-           duration_minutes = COALESCE(?, duration_minutes),
-           status = COALESCE(?, status)
+           duration_minutes = ?,
+           status = COALESCE(?, status),
+           shift = ?
        WHERE id = ?`,
       [
-        course_id,
-        exam_name,
-        exam_type,
+        targetCourseId,
+        exam_name || null,
+        exam_type || null,
         targetDate,
         targetStart,
         targetEnd,
         calculatedDuration,
-        status,
+        status || null,
+        shift,
         id
       ]
     );

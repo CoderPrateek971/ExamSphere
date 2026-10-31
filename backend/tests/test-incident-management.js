@@ -1,24 +1,36 @@
 const assert = require('assert');
 const incidentService = require('../services/incidentService');
+const { query } = require('../config/db');
 
 async function runIncidentTests() {
   console.log('\n======================================================');
   console.log('🧪 RUNNING MODULE 8 TESTS: EXAM-DAY INCIDENT MANAGEMENT');
   console.log('======================================================\n');
 
+  // Fetch valid active foreign keys
+  const [eRows] = await query('SELECT id FROM exams LIMIT 1');
+  const [sRows] = await query('SELECT id FROM students LIMIT 1');
+  const [rRows] = await query('SELECT id FROM rooms LIMIT 1');
+  const [fRows] = await query('SELECT id FROM faculty LIMIT 1');
+
+  const validExamId = eRows[0]?.id || 1;
+  const validStudentId = sRows[0]?.id || 1;
+  const validRoomId = rRows[0]?.id || 1;
+  const validFacultyId = fRows[0]?.id || 1;
+
   // Test 1: Submitting a new UFM Malpractice Report with Photo Evidence and Written Statements
   const newReportData = {
-    exam_id: 1,
+    exam_id: validExamId,
     exam_name: 'CSE3005 Software Engineering End-Term',
     course_code: 'CSE3005',
-    student_id: 104,
+    student_id: validStudentId,
     student_name: 'Vikas Gupta',
     student_roll: '21BCSE1095',
     student_dept: 'Computer Science & Engineering',
-    room_id: 1,
+    room_id: validRoomId,
     room_number: 'E2-101',
     desk_number: 'Row 4, Desk 18',
-    invigilator_id: 2,
+    invigilator_id: validFacultyId,
     invigilator_name: 'Dr. Nishtha Phutela',
     invigilator_department: 'CSE',
     incident_date: '2026-11-20',
@@ -86,7 +98,9 @@ async function runIncidentTests() {
   console.log('======================================================\n');
 }
 
-runIncidentTests().catch(err => {
+runIncidentTests().then(() => {
+  process.exit(0);
+}).catch(err => {
   console.error('❌ Incident Management Test Failed:', err);
   process.exit(1);
 });

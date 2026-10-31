@@ -4,6 +4,50 @@ import {
   Users, AlertCircle, Edit, Trash2, CheckCircle2 
 } from 'lucide-react';
 
+const formatTime12h = (timeStr) => {
+  if (!timeStr) return '';
+  const parts = timeStr.toString().split(':');
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h.toString().padStart(2, '0')}:${m} ${ampm}`;
+};
+
+const getSlotTimeDisplay = (examsInSlot, defaultRange, stdStart = '09:30', stdEnd = '12:30') => {
+  if (!examsInSlot || examsInSlot.length === 0) {
+    return { rangeText: defaultRange, isCustom: false };
+  }
+
+  // Check if all exams have identical timing
+  const first = examsInSlot[0];
+  const allSame = examsInSlot.every(
+    e => e.start_time.slice(0, 5) === first.start_time.slice(0, 5) && 
+         e.end_time.slice(0, 5) === first.end_time.slice(0, 5)
+  );
+
+  if (allSame) {
+    const isCustom = first.start_time.slice(0, 5) !== stdStart || first.end_time.slice(0, 5) !== stdEnd;
+    return {
+      rangeText: `${formatTime12h(first.start_time)} - ${formatTime12h(first.end_time)}`,
+      isCustom
+    };
+  }
+
+  // Multiple exams with differing timings in this slot
+  const sortedStarts = [...examsInSlot].map(e => e.start_time).sort();
+  const sortedEnds = [...examsInSlot].map(e => e.end_time).sort();
+  const minStart = sortedStarts[0];
+  const maxEnd = sortedEnds[sortedEnds.length - 1];
+  const isCustom = minStart.slice(0, 5) !== stdStart || maxEnd.slice(0, 5) !== stdEnd;
+
+  return {
+    rangeText: `${formatTime12h(minStart)} - ${formatTime12h(maxEnd)}`,
+    isCustom
+  };
+};
+
 export default function TimetableCalendarGrid({ matrix, onEditExam, onDeleteExam }) {
   if (!matrix || !matrix.dates || matrix.dates.length === 0) {
     return (
@@ -167,7 +211,32 @@ export default function TimetableCalendarGrid({ matrix, onEditExam, onDeleteExam
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.15rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
             <Clock size={13} color="var(--accent-cyan)" />
-            <span>{exam.start_time.slice(0, 5)} - {exam.end_time.slice(0, 5)}</span>
+            <span style={{ fontWeight: 600, color: '#f3f4f6' }}>
+              {exam.start_time.slice(0, 5)} - {exam.end_time.slice(0, 5)}
+            </span>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                color: 'var(--accent-cyan)',
+                background: 'rgba(6, 182, 212, 0.12)',
+                padding: '0.05rem 0.4rem',
+                borderRadius: '4px',
+                fontWeight: 600
+              }}
+            >
+              {(() => {
+                const dur = exam.duration_minutes || (() => {
+                  const s = exam.start_time.split(':').map(Number);
+                  const e = exam.end_time.split(':').map(Number);
+                  return (e[0] * 60 + (e[1] || 0)) - (s[0] * 60 + (s[1] || 0));
+                })();
+                const h = Math.floor(dur / 60);
+                const m = dur % 60;
+                if (h > 0 && m > 0) return `${h}h ${m}m`;
+                if (h > 0) return `${h}h`;
+                return `${m}m`;
+              })()}
+            </span>
           </div>
 
           <div>
@@ -278,9 +347,31 @@ export default function TimetableCalendarGrid({ matrix, onEditExam, onDeleteExam
                       Morning Slot
                     </span>
                   </div>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    09:30 AM - 12:30 PM
-                  </span>
+                  {(() => {
+                    const { rangeText, isCustom } = getSlotTimeDisplay(dayData.slots.MORNING, '09:30 AM - 12:30 PM', '09:30', '12:30');
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        {isCustom && (
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              padding: '0.08rem 0.35rem',
+                              borderRadius: '4px',
+                              background: 'rgba(6, 182, 212, 0.15)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(6, 182, 212, 0.3)'
+                            }}
+                          >
+                            Custom
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.72rem', color: isCustom ? '#38bdf8' : 'var(--text-muted)', fontWeight: isCustom ? 700 : 400 }}>
+                          {rangeText}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -319,9 +410,31 @@ export default function TimetableCalendarGrid({ matrix, onEditExam, onDeleteExam
                       Afternoon Slot
                     </span>
                   </div>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    02:00 PM - 05:00 PM
-                  </span>
+                  {(() => {
+                    const { rangeText, isCustom } = getSlotTimeDisplay(dayData.slots.AFTERNOON, '02:00 PM - 05:00 PM', '14:00', '17:00');
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        {isCustom && (
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              padding: '0.08rem 0.35rem',
+                              borderRadius: '4px',
+                              background: 'rgba(6, 182, 212, 0.15)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(6, 182, 212, 0.3)'
+                            }}
+                          >
+                            Custom
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.72rem', color: isCustom ? '#38bdf8' : 'var(--text-muted)', fontWeight: isCustom ? 700 : 400 }}>
+                          {rangeText}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -361,10 +474,32 @@ export default function TimetableCalendarGrid({ matrix, onEditExam, onDeleteExam
                         Evening Slot
                       </span>
                     </div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      05:30 PM - 08:30 PM
-                    </span>
-                  </div>
+                    {(() => {
+                      const { rangeText, isCustom } = getSlotTimeDisplay(dayData.slots.EVENING, '05:30 PM - 08:30 PM', '17:30', '20:30');
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          {isCustom && (
+                            <span
+                              style={{
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              padding: '0.08rem 0.35rem',
+                              borderRadius: '4px',
+                              background: 'rgba(6, 182, 212, 0.15)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(6, 182, 212, 0.3)'
+                            }}
+                          >
+                            Custom
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.72rem', color: isCustom ? '#38bdf8' : 'var(--text-muted)', fontWeight: isCustom ? 700 : 400 }}>
+                          {rangeText}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     {dayData.slots.EVENING.map(renderExamCard)}
