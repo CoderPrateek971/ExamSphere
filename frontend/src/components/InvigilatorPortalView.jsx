@@ -584,28 +584,8 @@ export default function InvigilatorPortalView({ user }) {
                   No Invigilation Duties Assigned Yet
                 </h3>
                 <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '0 auto 1.25rem auto' }}>
-                  You currently have no scheduled invigilation slots. Contact the Controller of Examinations or seed demo duties.
+                  You currently have no scheduled invigilation slots. Contact the Controller of Examinations for your duty schedule.
                 </p>
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => {
-                    setActionLoading(true);
-                    try {
-                      await api.seedDuties();
-                      showToast('Generated sample invigilation duties!');
-                      await loadDuties();
-                    } catch (e) {
-                      showToast(e.message);
-                    } finally {
-                      setActionLoading(false);
-                    }
-                  }}
-                  disabled={actionLoading}
-                  style={{ margin: '0 auto', fontSize: '0.82rem' }}
-                >
-                  <Sparkles size={14} />
-                  <span>Generate Sample Duties</span>
-                </button>
               </div>
             ) : (
               duties.map((duty) => {
@@ -882,10 +862,10 @@ export default function InvigilatorPortalView({ user }) {
                     alignItems: 'center',
                     gap: '0.4rem'
                   }}
-                  title="Submit a student doubt from this classroom and alert the subject faculty via email"
+                  title="Submit a student doubt from this classroom and request subject faculty support via email"
                 >
                   <HelpCircle size={14} />
-                  <span>Raise Student Doubt (Call Faculty)</span>
+                  <span>Request Doubt Support (Call Faculty)</span>
                 </button>
               </div>
 

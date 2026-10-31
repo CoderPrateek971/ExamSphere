@@ -577,7 +577,7 @@ export default function ExamIncidentManagementView({ user, onNavigateToStep }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Workflow Navigation Banner */}
-      <div style={{
+      <div className="workflow-banner workflow-banner--navigation" style={{
         background: 'linear-gradient(90deg, rgba(244,63,94,0.12), rgba(99,102,241,0.12))',
         border: '1px solid rgba(244,63,94,0.25)',
         borderRadius: '10px',

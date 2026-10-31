@@ -42,25 +42,25 @@ const INGESTION_STRATEGIES = {
       // Resolve student id
       let studentId = result.insertId;
       if (!studentId) {
-        const [[existing]] = await query('SELECT id FROM students WHERE enrollment_no = ?', [row.enrollment_no]);
-        if (existing) studentId = existing.id;
+        const [existingRows] = await query('SELECT id FROM students WHERE enrollment_no = ?', [row.enrollment_no]);
+        if (existingRows && existingRows[0]) studentId = existingRows[0].id;
       }
 
       // Link enrolled subjects into student_courses junction table
       if (enrolledStr && studentId) {
         const courseCodes = enrolledStr.split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
         for (const code of courseCodes) {
-          let [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
-          let courseId = course?.id;
+          let [cRows] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+          let courseId = cRows[0]?.id;
           if (!courseId) {
             const [cRes] = await query(
               'INSERT INTO courses (course_code, course_name, department, semester, difficulty_level) VALUES (?, ?, ?, ?, 3) ON DUPLICATE KEY UPDATE course_code = course_code',
               [code, `${code} Course`, row.department || 'CSE', finalSemester || 1]
             );
-            courseId = cRes.insertId;
+            courseId = cRes?.insertId;
             if (!courseId) {
-              const [[cFound]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
-              courseId = cFound?.id;
+              const [cFound] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+              courseId = cFound[0]?.id;
             }
           }
           if (courseId) {

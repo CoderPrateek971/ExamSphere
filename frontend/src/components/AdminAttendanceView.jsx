@@ -246,7 +246,7 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
   return (
     <div className="admin-attendance-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Workflow Navigation Banner */}
-      <div style={{
+      <div className="workflow-banner workflow-banner--navigation" style={{
         background: 'linear-gradient(90deg, rgba(6,182,212,0.12), rgba(244,63,94,0.12))',
         border: '1px solid rgba(6,182,212,0.3)',
         borderRadius: '10px',
@@ -343,38 +343,6 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.3rem' }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                color: 'var(--accent-cyan)',
-                background: 'rgba(6, 182, 212, 0.12)',
-                border: '1px solid rgba(6, 182, 212, 0.3)',
-                padding: '0.2rem 0.6rem',
-                borderRadius: '20px',
-                letterSpacing: '0.05em'
-              }}
-            >
-              MODULE 7 • ADMIN ATTENDANCE & BIOMETRIC RADAR
-            </span>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                color: 'var(--accent-emerald)',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '0.2rem 0.55rem',
-                borderRadius: '20px'
-              }}
-            >
-              LIVE SYNC
-            </span>
-          </div>
           <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
             Exam Attendance & Identity Verification
           </h2>

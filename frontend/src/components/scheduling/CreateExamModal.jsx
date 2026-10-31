@@ -430,7 +430,7 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
               onClick={() => setScheduleMode('AI')}
             >
               <Sparkles size={15} />
-              <span>AI Auto-Fix in Dates Span</span>
+              <span>Find an available time</span>
             </button>
           </div>
 
@@ -452,11 +452,11 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                     <Sparkles size={16} color="#818cf8" />
                     <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#f3f4f6' }}>
-                      AI Optimal Slot Finder
+                      Suggested time slot
                     </span>
                   </div>
                   <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Specify the dates span across which this exam can be scheduled. AI scans all slots and automatically fixes the exam with minimum or zero conflicts.
+                    Choose a date range. ExamSphere will check available slots and avoid scheduling conflicts.
                   </p>
                 </div>
 
@@ -554,7 +554,7 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
                   ) : (
                     <>
                       <Sparkles size={15} />
-                      <span>Find & Fix Optimal Slot (AI)</span>
+                      <span>Find an available slot</span>
                     </>
                   )}
                 </button>
@@ -582,7 +582,7 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#6ee7b7', fontWeight: 800, fontSize: '0.88rem' }}>
                       <CheckCircle2 size={18} color="#10b981" />
-                      <span>AI Optimal Slot Assigned:</span>
+                      <span>Suggested slot:</span>
                     </div>
                     <span style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: 700, background: 'rgba(16, 185, 129, 0.2)', padding: '0.15rem 0.5rem', borderRadius: '6px' }}>
                       {aiOptimalResult.optimalSlot.conflictsCount === 0 ? '✓ 0 Conflicts' : `${aiOptimalResult.optimalSlot.conflictsCount} Clash`}

@@ -69,22 +69,21 @@ export default function AnalyticsReportsView({ user }) {
       <div className="panel-header" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1.25rem', marginBottom: '0.5rem' }}>
         <div className="panel-title">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{
+            <div className="report-mark" style={{
               width: '40px',
               height: '40px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2))',
+              borderRadius: '8px',
+              background: '#edf2f7',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               border: '1px solid var(--border-accent)'
             }}>
-              <BarChart3 size={22} color="var(--accent-cyan)" />
+              <BarChart3 size={22} color="var(--primary)" />
             </div>
             <div>
               <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Analytics & Performance Reporting
-                <span className="badge badge-indigo" style={{ fontSize: '0.72rem' }}>Module 10</span>
+                Analytics & Reports
               </h2>
               <p>Institutional exam analytics: room capacities, student attendance rates, faculty distribution & malpractice summaries.</p>
             </div>
@@ -109,10 +108,10 @@ export default function AnalyticsReportsView({ user }) {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '0.75rem',
-        background: 'rgba(15, 23, 42, 0.45)',
-        padding: '0.5rem',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border-subtle)'
+        background: 'transparent',
+        padding: 0,
+        borderRadius: 0,
+        border: 0
       }}>
         <button
           className={`tab-btn ${activeReport === 'room' ? 'active' : ''}`}
@@ -120,7 +119,7 @@ export default function AnalyticsReportsView({ user }) {
           style={{ justifyContent: 'center', width: '100%', padding: '0.75rem 1rem' }}
         >
           <Building2 size={16} />
-          <span>TC09: Room Utilization</span>
+          <span>Room utilization</span>
         </button>
 
         <button
@@ -129,7 +128,7 @@ export default function AnalyticsReportsView({ user }) {
           style={{ justifyContent: 'center', width: '100%', padding: '0.75rem 1rem' }}
         >
           <CheckCircle2 size={16} />
-          <span>TC10: Attendance Stats</span>
+          <span>Attendance</span>
         </button>
 
         <button
@@ -138,7 +137,7 @@ export default function AnalyticsReportsView({ user }) {
           style={{ justifyContent: 'center', width: '100%', padding: '0.75rem 1rem' }}
         >
           <Users size={16} />
-          <span>TC11: Faculty Workload</span>
+          <span>Faculty workload</span>
         </button>
 
         <button
@@ -147,7 +146,7 @@ export default function AnalyticsReportsView({ user }) {
           style={{ justifyContent: 'center', width: '100%', padding: '0.75rem 1rem' }}
         >
           <ShieldAlert size={16} />
-          <span>TC12: UFM Incident Summary</span>
+          <span>Incident summary</span>
         </button>
       </div>
 

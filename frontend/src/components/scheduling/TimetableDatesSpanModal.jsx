@@ -364,7 +364,7 @@ export default function TimetableDatesSpanModal({
               <AlertTriangle size={16} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
               <div>
                 <strong>Notice:</strong> {outsideExams.length} currently scheduled examination(s) fall outside this updated range.
-                You can use the <strong>AI Automated Timetable Generator</strong> or <strong>Auto-Resolve Conflicts</strong> to reschedule them within this new window.
+                You can use the <strong>timetable generator</strong> or <strong>Resolve conflicts</strong> to reschedule them within this new window.
               </div>
             </div>
           )}

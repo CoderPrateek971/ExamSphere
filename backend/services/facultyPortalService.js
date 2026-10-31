@@ -250,6 +250,8 @@ class FacultyPortalService {
         c.course_name,
         c.department as course_department,
         c.semester as course_semester,
+        c.course_coordinator_id,
+        c.course_coordinator_name,
         r.room_number,
         r.building,
         r.capacity as room_capacity,

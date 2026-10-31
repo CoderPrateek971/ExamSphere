@@ -257,7 +257,7 @@ export default function RaiseDoubtModal({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>
-                  Forward Student Doubt to Faculty
+                  Request Doubt Support (Call Faculty)
                 </h3>
                 <span style={{
                   fontSize: '0.65rem',
@@ -273,7 +273,7 @@ export default function RaiseDoubtModal({
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                Routes question to subject faculty & immediately triggers automated email notification
+                Dispatches an urgent doubt support request to the course faculty for this examination room via email and live alert
               </p>
             </div>
           </div>
@@ -576,12 +576,12 @@ export default function RaiseDoubtModal({
               {submitting ? (
                 <>
                   <div className="spinner" style={{ width: '14px', height: '14px' }}></div>
-                  <span>Routing & Dispatching Email...</span>
+                  <span>Dispatching Doubt Request...</span>
                 </>
               ) : (
                 <>
                   <Send size={15} />
-                  <span>Send Doubt & Dispatch Email</span>
+                  <span>Dispatch Doubt Support Request</span>
                 </>
               )}
             </button>

@@ -792,7 +792,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Workflow Navigation Banner */}
-      <div style={{
+      <div className="workflow-banner workflow-banner--navigation" style={{
         background: 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(245,158,11,0.12))',
         border: '1px solid rgba(16,185,129,0.25)',
         borderRadius: '10px',
@@ -991,31 +991,9 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                 title="Choose between Manual or Automatic Assignment"
               >
                 <Plus size={16} />
-                <span>+ Assign Duties</span>
+                <span>Assign Duties</span>
               </button>
 
-              {/* Direct Quick Button: Manual */}
-              <button 
-                className="btn btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
-                onClick={openManualAssign}
-                title="Directly open manual assignment modal"
-              >
-                <UserCheck size={14} />
-                <span>Manual</span>
-              </button>
-
-              {/* Direct Quick Button: Auto-Assign */}
-              <button 
-                className="btn btn-secondary" 
-                style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem', borderColor: '#34d399', color: '#6ee7b7' }}
-                onClick={handleAutoAllocate}
-                disabled={actionLoading}
-                title="Directly auto-balance and assign all duties"
-              >
-                <Scale size={14} />
-                <span>Auto-Allocate</span>
-              </button>
             </div>
           </div>
 
@@ -1095,8 +1073,8 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="custom-table">
+          <div className="table-responsive duty-roster-table-wrap">
+            <table className="custom-table duty-roster-table">
               <thead>
                 <tr>
                   <th>Exam & Subject</th>
@@ -1121,36 +1099,16 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 1.25rem' }}>
                         {rosterViewMode === 'history'
                           ? `There are no previous exam duties before ${formatDateReadable(currentDate)}. Previous dates will automatically appear here once their exam date has passed.`
-                          : `There are no duties scheduled on or after ${formatDateReadable(currentDate)}. Assign a teacher manually or click Auto-Assign to distribute slots.`}
+                          : `There are no duties scheduled on or after ${formatDateReadable(currentDate)}. Use Assign Duties above to assign teachers manually or automatically.`}
                       </p>
-                      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                        {rosterViewMode === 'history' ? (
-                          <button 
-                            className="btn btn-primary"
-                            onClick={() => setRosterViewMode('current_upcoming')}
-                          >
-                            <span>View Current & Upcoming Duties</span>
-                          </button>
-                        ) : (
-                          <>
-                            <button 
-                              className="btn btn-secondary" 
-                              onClick={openManualAssign}
-                            >
-                              <Plus size={15} />
-                              <span>Assign Manually</span>
-                            </button>
-                            <button 
-                              className="btn btn-primary" 
-                              onClick={handleAutoAllocate}
-                              disabled={actionLoading}
-                            >
-                              <Scale size={15} />
-                              <span>Auto-Allocate Duties</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {rosterViewMode === 'history' && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => setRosterViewMode('current_upcoming')}
+                        >
+                          <span>View Current & Upcoming Duties</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (

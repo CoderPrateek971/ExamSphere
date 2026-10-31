@@ -31,7 +31,7 @@ export default function CoursesTable({ data, loading, onDelete }) {
     <div>
       {/* Semester Quick Filter Bar */}
       {uniqueSemesters.length > 1 && (
-        <div style={{
+        <div className="course-semester-filters" style={{
           display: 'flex',
           alignItems: 'center',
           gap: '0.5rem',
@@ -49,6 +49,7 @@ export default function CoursesTable({ data, loading, onDelete }) {
 
           <button
             onClick={() => setSelectedSemester('ALL')}
+            className={`semester-filter-btn ${selectedSemester === 'ALL' ? 'active' : ''}`}
             style={{
               background: selectedSemester === 'ALL' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
               color: selectedSemester === 'ALL' ? '#a5b4fc' : '#9ca3af',
@@ -70,6 +71,7 @@ export default function CoursesTable({ data, loading, onDelete }) {
               <button
                 key={sem}
                 onClick={() => setSelectedSemester(String(sem))}
+                className={`semester-filter-btn ${isSelected ? 'active' : ''}`}
                 style={{
                   background: isSelected ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
                   color: isSelected ? '#67e8f9' : '#9ca3af',
