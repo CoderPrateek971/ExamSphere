@@ -22,35 +22,37 @@ const {
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 const { uploadCSV } = require('../middleware/uploadMiddleware');
 
-// All master data endpoints require authentication & ADMIN role
-router.use(verifyToken, requireRole('ADMIN'));
+// All master data endpoints require authentication
+router.use(verifyToken);
 
-// Students
-router.get('/students', getStudents);
-router.post('/students', createStudent);
-router.put('/students/:id', updateStudent);
-router.delete('/students/:id', deleteStudent);
+// Read endpoints: accessible by ADMIN and FACULTY (needed for live room/doubt/duty routing)
+router.get('/students', requireRole('ADMIN', 'FACULTY'), getStudents);
+router.get('/faculty', requireRole('ADMIN', 'FACULTY'), getFaculty);
+router.get('/courses', requireRole('ADMIN', 'FACULTY'), getCourses);
+router.get('/rooms', requireRole('ADMIN', 'FACULTY'), getRooms);
 
-// Faculty
-router.get('/faculty', getFaculty);
-router.post('/faculty', createFaculty);
-router.put('/faculty/:id', updateFaculty);
-router.delete('/faculty/:id', deleteFaculty);
+// Students mutating endpoints: strictly ADMIN
+router.post('/students', requireRole('ADMIN'), createStudent);
+router.put('/students/:id', requireRole('ADMIN'), updateStudent);
+router.delete('/students/:id', requireRole('ADMIN'), deleteStudent);
 
-// Courses
-router.get('/courses', getCourses);
-router.post('/courses', createCourse);
-router.put('/courses/:id', updateCourse);
-router.delete('/courses/:id', deleteCourse);
+// Faculty mutating endpoints: strictly ADMIN
+router.post('/faculty', requireRole('ADMIN'), createFaculty);
+router.put('/faculty/:id', requireRole('ADMIN'), updateFaculty);
+router.delete('/faculty/:id', requireRole('ADMIN'), deleteFaculty);
 
-// Rooms
-router.get('/rooms', getRooms);
-router.post('/rooms', createRoom);
-router.put('/rooms/:id', updateRoom);
-router.delete('/rooms/:id', deleteRoom);
+// Courses mutating endpoints: strictly ADMIN
+router.post('/courses', requireRole('ADMIN'), createCourse);
+router.put('/courses/:id', requireRole('ADMIN'), updateCourse);
+router.delete('/courses/:id', requireRole('ADMIN'), deleteCourse);
 
-// Bulk CSV Upload for any entity ('students', 'faculty', 'courses', 'rooms')
-router.post('/upload-csv/:entityType', (req, res, next) => {
+// Rooms mutating endpoints: strictly ADMIN
+router.post('/rooms', requireRole('ADMIN'), createRoom);
+router.put('/rooms/:id', requireRole('ADMIN'), updateRoom);
+router.delete('/rooms/:id', requireRole('ADMIN'), deleteRoom);
+
+// Bulk CSV Upload for any entity ('students', 'faculty', 'courses', 'rooms') - strictly ADMIN
+router.post('/upload-csv/:entityType', requireRole('ADMIN'), (req, res, next) => {
   uploadCSV.single('file')(req, res, (err) => {
     if (err) {
       return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
@@ -59,8 +61,8 @@ router.post('/upload-csv/:entityType', (req, res, next) => {
   });
 }, uploadMasterCSV);
 
-// Reset / Wipe all records from database (clean slate for new file uploads)
-router.post('/reset-database', async (req, res) => {
+// Reset / Wipe all records from database - strictly ADMIN
+router.post('/reset-database', requireRole('ADMIN'), async (req, res) => {
   const { pool } = require('../config/db');
   if (!pool) return res.status(500).json({ success: false, message: 'Database not connected' });
   const conn = await pool.getConnection();
@@ -104,8 +106,8 @@ router.post('/reset-database', async (req, res) => {
   }
 });
 
-// Delete all records of a specific entity type ('courses', 'rooms', 'faculty', 'students') directly
-router.delete('/clear/:entityType', async (req, res) => {
+// Delete all records of a specific entity type ('courses', 'rooms', 'faculty', 'students') directly - strictly ADMIN
+router.delete('/clear/:entityType', requireRole('ADMIN'), async (req, res) => {
   const { entityType } = req.params;
   const validTypes = ['students', 'faculty', 'courses', 'rooms'];
   if (!validTypes.includes(entityType)) {

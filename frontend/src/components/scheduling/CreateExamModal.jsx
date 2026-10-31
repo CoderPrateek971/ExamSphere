@@ -6,6 +6,40 @@ import {
 } from 'lucide-react';
 import { api } from '../../api';
 
+// Time manipulation helpers
+const timeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.toString().split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  return h * 60 + m;
+};
+
+const minutesToTime = (totalM) => {
+  let m = Math.max(0, Math.min(1439, totalM));
+  const hours = Math.floor(m / 60);
+  const mins = m % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`;
+};
+
+const ensureTimeWithSeconds = (t) => {
+  if (!t) return '09:30:00';
+  const parts = t.toString().split(':');
+  const h = (parts[0] || '09').padStart(2, '0');
+  const m = (parts[1] || '30').padStart(2, '0');
+  const s = (parts[2] || '00').padStart(2, '0');
+  return `${h}:${m}:${s}`;
+};
+
+const formatDurationLabel = (mins) => {
+  if (!mins || mins <= 0) return '0m';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m (${mins} min)`;
+  if (h > 0) return `${h} hr${h > 1 ? 's' : ''} (${mins} min)`;
+  return `${m} min`;
+};
+
 export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExam = null, courses = [], onOpenGenerateTimetable = null, timetableSpan = null }) {
   const isEdit = Boolean(initialExam && initialExam.id);
 
@@ -48,20 +82,31 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
     if (timetableSpan?.endDate) setAiEndDate(timetableSpan.endDate);
 
     if (initialExam) {
+      const start = initialExam.start_time || '09:30:00';
+      const end = initialExam.end_time || '12:30:00';
+      const startM = timeToMinutes(start);
+      const endM = timeToMinutes(end);
+      const diff = endM > startM ? endM - startM : (initialExam.duration_minutes || 180);
+
       setFormData({
         course_id: initialExam.course_id || '',
         exam_name: initialExam.exam_name || '',
         exam_type: initialExam.exam_type || 'END_TERM',
         exam_date: initialExam.exam_date || '',
-        start_time: initialExam.start_time || '09:30:00',
-        end_time: initialExam.end_time || '12:30:00',
-        duration_minutes: initialExam.duration_minutes || 180,
+        start_time: start,
+        end_time: end,
+        duration_minutes: diff,
         status: initialExam.status || 'SCHEDULED'
       });
+
       // Determine preset
-      if (initialExam.start_time === '09:30:00') setSelectedSlotPreset('MORNING');
-      else if (initialExam.start_time === '14:00:00') setSelectedSlotPreset('AFTERNOON');
-      else setSelectedSlotPreset('CUSTOM');
+      if (start.slice(0, 5) === '09:30' && end.slice(0, 5) === '12:30' && diff === 180) {
+        setSelectedSlotPreset('MORNING');
+      } else if (start.slice(0, 5) === '14:00' && end.slice(0, 5) === '17:00' && diff === 180) {
+        setSelectedSlotPreset('AFTERNOON');
+      } else {
+        setSelectedSlotPreset('CUSTOM');
+      }
     } else {
       // Default to start date of session or 5 days in the future
       let defaultDate = timetableSpan?.startDate;
@@ -129,7 +174,85 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
         end_time: '20:30:00',
         duration_minutes: 180
       }));
+    } else if (preset === 'CUSTOM') {
+      setFormData(prev => {
+        const startM = timeToMinutes(prev.start_time);
+        const endM = timeToMinutes(prev.end_time);
+        let dur = prev.duration_minutes || 120;
+        let newEnd = prev.end_time;
+        if (endM > startM) {
+          dur = endM - startM;
+        } else {
+          newEnd = minutesToTime(startM + dur);
+        }
+        return {
+          ...prev,
+          end_time: newEnd,
+          duration_minutes: dur
+        };
+      });
     }
+  };
+
+  // Bidirectional handlers for time & duration synchronization
+  const handleStartTimeChange = (val) => {
+    if (!val) return;
+    const fullTime = ensureTimeWithSeconds(val);
+    setSelectedSlotPreset('CUSTOM');
+    setFormData(prev => {
+      const newStartM = timeToMinutes(fullTime);
+      const currentEndM = timeToMinutes(prev.end_time);
+      let newDur = prev.duration_minutes || 120;
+      let newEnd = prev.end_time;
+
+      if (currentEndM > newStartM) {
+        newDur = currentEndM - newStartM;
+      } else {
+        newEnd = minutesToTime(newStartM + newDur);
+      }
+
+      return {
+        ...prev,
+        start_time: fullTime,
+        end_time: newEnd,
+        duration_minutes: newDur
+      };
+    });
+  };
+
+  const handleEndTimeChange = (val) => {
+    if (!val) return;
+    const fullTime = ensureTimeWithSeconds(val);
+    setSelectedSlotPreset('CUSTOM');
+    setFormData(prev => {
+      const startM = timeToMinutes(prev.start_time);
+      const newEndM = timeToMinutes(fullTime);
+      let newDur = prev.duration_minutes || 120;
+
+      if (newEndM > startM) {
+        newDur = newEndM - startM;
+      }
+
+      return {
+        ...prev,
+        end_time: fullTime,
+        duration_minutes: newDur
+      };
+    });
+  };
+
+  const handleDurationChange = (val) => {
+    const mins = Math.max(15, Math.min(480, Number(val) || 0));
+    setSelectedSlotPreset('CUSTOM');
+    setFormData(prev => {
+      const startM = timeToMinutes(prev.start_time);
+      const newEnd = minutesToTime(startM + mins);
+      return {
+        ...prev,
+        duration_minutes: mins,
+        end_time: newEnd
+      };
+    });
   };
 
   // AI Optimal Slot Finder across user-selected dates span
@@ -219,10 +342,15 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
       setError('Exam date is required.');
       return;
     }
-    if (formData.start_time >= formData.end_time) {
+    
+    const startM = timeToMinutes(formData.start_time);
+    const endM = timeToMinutes(formData.end_time);
+    if (startM >= endM) {
       setError('Start time must be strictly earlier than end time.');
       return;
     }
+
+    const calculatedDuration = endM - startM;
 
     // Check if there are critical hard conflicts
     if (validationResult && validationResult.conflicts && validationResult.conflicts.length > 0) {
@@ -232,16 +360,18 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
 
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        start_time: ensureTimeWithSeconds(formData.start_time),
+        end_time: ensureTimeWithSeconds(formData.end_time),
+        duration_minutes: calculatedDuration,
+        course_id: Number(formData.course_id)
+      };
+
       if (isEdit) {
-        await api.updateExam(initialExam.id, {
-          ...formData,
-          course_id: Number(formData.course_id)
-        });
+        await api.updateExam(initialExam.id, payload);
       } else {
-        await api.createExam({
-          ...formData,
-          course_id: Number(formData.course_id)
-        });
+        await api.createExam(payload);
       }
       onSuccess?.();
       onClose();
@@ -608,11 +738,13 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
                             className="btn btn-secondary"
                             style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}
                             onClick={() => {
+                              const diff = timeToMinutes(alt.end_time) - timeToMinutes(alt.start_time);
                               setFormData(prev => ({
                                 ...prev,
                                 exam_date: alt.exam_date,
                                 start_time: alt.start_time,
-                                end_time: alt.end_time
+                                end_time: alt.end_time,
+                                duration_minutes: diff > 0 ? diff : 180
                               }));
                             }}
                           >
@@ -663,7 +795,7 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
                   type="button"
                   className={`btn ${selectedSlotPreset === 'CUSTOM' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ fontSize: '0.76rem', padding: '0.4rem 0.5rem' }}
-                  onClick={() => setSelectedSlotPreset('CUSTOM')}
+                  onClick={() => handleSlotPresetChange('CUSTOM')}
                 >
                   Custom
                 </button>
@@ -677,13 +809,10 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
               <label style={{ fontWeight: 700, fontSize: '0.82rem' }}>Start Time</label>
               <input
                 type="time"
-                step="1"
+                step="60"
                 className="form-control"
-                value={formData.start_time}
-                onChange={(e) => {
-                  setSelectedSlotPreset('CUSTOM');
-                  setFormData(prev => ({ ...prev, start_time: e.target.value }));
-                }}
+                value={formData.start_time ? formData.start_time.slice(0, 5) : '09:30'}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
                 required
               />
             </div>
@@ -692,28 +821,58 @@ export default function CreateExamModal({ isOpen, onClose, onSuccess, initialExa
               <label style={{ fontWeight: 700, fontSize: '0.82rem' }}>End Time</label>
               <input
                 type="time"
-                step="1"
+                step="60"
                 className="form-control"
-                value={formData.end_time}
-                onChange={(e) => {
-                  setSelectedSlotPreset('CUSTOM');
-                  setFormData(prev => ({ ...prev, end_time: e.target.value }));
-                }}
+                value={formData.end_time ? formData.end_time.slice(0, 5) : '12:30'}
+                onChange={(e) => handleEndTimeChange(e.target.value)}
                 required
               />
             </div>
 
             <div className="form-group">
-              <label style={{ fontWeight: 700, fontSize: '0.82rem' }}>Duration (Mins)</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontWeight: 700, fontSize: '0.82rem', margin: 0 }}>Duration</label>
+                <span style={{ fontSize: '0.74rem', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                  {formatDurationLabel(formData.duration_minutes)}
+                </span>
+              </div>
               <input
                 type="number"
                 className="form-control"
-                value={formData.duration_minutes}
-                onChange={(e) => setFormData(prev => ({ ...prev, duration_minutes: Number(e.target.value) }))}
-                min="30"
-                max="360"
+                style={{ marginTop: '0.25rem' }}
+                value={formData.duration_minutes || ''}
+                onChange={(e) => handleDurationChange(e.target.value)}
+                min="15"
+                max="480"
+                step="15"
               />
             </div>
+          </div>
+
+          {/* Quick Duration Presets for convenience */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '-0.45rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Quick Duration:</span>
+            {[
+              { label: '1 hr (60m)', mins: 60 },
+              { label: '1.5 hrs (90m)', mins: 90 },
+              { label: '2 hrs (120m)', mins: 120 },
+              { label: '3 hrs (180m)', mins: 180 }
+            ].map(p => (
+              <button
+                key={p.mins}
+                type="button"
+                className={`btn ${formData.duration_minutes === p.mins ? 'btn-primary' : 'btn-secondary'}`}
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '0.2rem 0.55rem',
+                  borderRadius: '6px',
+                  fontWeight: formData.duration_minutes === p.mins ? 700 : 500
+                }}
+                onClick={() => handleDurationChange(p.mins)}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
 
           {/* Live Conflict Pre-Check Banner */}

@@ -15,7 +15,8 @@ export default function RaiseDoubtModal({
   currentExam = null,
   currentRoom = null,
   invigilatorUser = null,
-  initialStudent = null
+  initialStudent = null,
+  roomStudents = []
 }) {
   const [exams, setExams] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -54,30 +55,95 @@ export default function RaiseDoubtModal({
         ]);
 
         const examData = eRes.data || [];
-        const roomData = rRes.data || [];
+        let roomData = rRes.data || [];
         const facData = fRes.data || [];
-        const studData = sRes.data || [];
+        let studData = sRes.data || [];
 
-        setExams(examData);
+        // If currentRoom is passed, make sure it is in roomData
+        if (currentRoom && (currentRoom.id || currentRoom.room_id)) {
+          const cId = currentRoom.id || currentRoom.room_id;
+          if (!roomData.some(r => String(r.id) === String(cId))) {
+            roomData = [{
+              id: cId,
+              room_number: currentRoom.room_number || 'Exam Hall',
+              building: currentRoom.building || 'Campus'
+            }, ...roomData];
+          }
+        }
+
+        // Merge roomStudents if provided (prioritized at top)
+        const combinedStudents = [];
+        if (roomStudents && roomStudents.length > 0) {
+          roomStudents.forEach(st => {
+            combinedStudents.push({
+              id: st.student_id || st.id,
+              name: st.student_name || st.name,
+              enrollment_no: st.enrollment_no || st.student_roll || '',
+              department: st.student_department || st.department || '',
+              seat_number: st.seat_number || ''
+            });
+          });
+        }
+        studData.forEach(st => {
+          if (!combinedStudents.some(s => String(s.id) === String(st.id))) {
+            combinedStudents.push(st);
+          }
+        });
+
+        // Also if currentExam is provided and not in examData
+        let combinedExams = [...examData];
+        if (currentExam && (currentExam.id || currentExam.exam_id)) {
+          const cExId = currentExam.id || currentExam.exam_id;
+          if (!combinedExams.some(e => String(e.id) === String(cExId))) {
+            combinedExams = [{
+              id: cExId,
+              exam_name: currentExam.exam_name || currentExam.name || 'Current Exam',
+              course_code: currentExam.course_code || '',
+              course_coordinator_id: currentExam.course_coordinator_id || null
+            }, ...combinedExams];
+          }
+        }
+
+        setExams(combinedExams);
         setRooms(roomData);
         setFacultyList(facData);
-        setStudents(studData);
+        setStudents(combinedStudents);
 
         // Pre-select defaults
-        const defaultExamId = currentExam?.id || currentExam?.exam_id || (examData[0] ? examData[0].id : '');
+        const defaultExamId = currentExam?.id || currentExam?.exam_id || (combinedExams[0] ? combinedExams[0].id : '');
         const defaultRoomId = currentRoom?.id || currentRoom?.room_id || (roomData[0] ? roomData[0].id : '');
-        const selectedExam = examData.find(e => String(e.id) === String(defaultExamId));
-        const designatedFaculty = facData.find(f => Number(f.id) === Number(selectedExam?.course_coordinator_id)) || facData[0];
+        const selectedExam = combinedExams.find(e => String(e.id) === String(defaultExamId));
+        
+        let designatedFaculty = null;
+        if (selectedExam?.course_coordinator_id) {
+          designatedFaculty = facData.find(f => Number(f.id) === Number(selectedExam.course_coordinator_id));
+        }
+        if (!designatedFaculty && selectedExam?.course_department) {
+          designatedFaculty = facData.find(f => f.department === selectedExam.course_department);
+        }
+        if (!designatedFaculty && facData.length > 0) {
+          designatedFaculty = facData[0];
+        }
+
         const defaultFacultyId = designatedFaculty ? designatedFaculty.id : '';
         const defaultRecipientEmail = designatedFaculty?.email || '';
-        const defaultStudent = initialStudent || studData[0] || null;
+
+        let defaultStudentId = 'GENERAL';
+        let defaultStudentRoll = 'GENERAL';
+        let defaultStudentName = 'General Room Question';
+
+        if (initialStudent) {
+          defaultStudentId = String(initialStudent.id || initialStudent.student_id || 'GENERAL');
+          defaultStudentRoll = initialStudent.enrollment_no || initialStudent.student_roll || '';
+          defaultStudentName = initialStudent.name || initialStudent.student_name || '';
+        }
 
         setFormData({
           examId: defaultExamId,
           roomId: defaultRoomId,
-          studentId: defaultStudent ? (defaultStudent.id || defaultStudent.student_id) : '',
-          studentRoll: defaultStudent ? (defaultStudent.enrollment_no || defaultStudent.student_roll) : '',
-          studentName: defaultStudent ? (defaultStudent.name || defaultStudent.student_name) : '',
+          studentId: defaultStudentId,
+          studentRoll: defaultStudentRoll,
+          studentName: defaultStudentName,
           facultyId: defaultFacultyId,
           recipientEmail: defaultRecipientEmail,
           urgency: 'HIGH',
@@ -91,23 +157,46 @@ export default function RaiseDoubtModal({
     };
 
     loadPrerequisites();
-  }, [isOpen, currentExam, currentRoom, initialStudent]);
+  }, [
+    isOpen, 
+    currentExam?.id || currentExam?.exam_id, 
+    currentRoom?.id || currentRoom?.room_id, 
+    initialStudent?.id || initialStudent?.student_id
+  ]);
 
   // When student selection changes
   const handleStudentSelect = (studentId) => {
+    if (!studentId || studentId === 'GENERAL') {
+      setFormData(prev => ({
+        ...prev,
+        studentId: 'GENERAL',
+        studentRoll: 'GENERAL',
+        studentName: 'General Room Question'
+      }));
+      return;
+    }
     const st = students.find(s => String(s.id) === String(studentId));
     setFormData(prev => ({
       ...prev,
-      studentId,
-      studentRoll: st ? st.enrollment_no : prev.studentRoll,
-      studentName: st ? st.name : prev.studentName
+      studentId: String(studentId),
+      studentRoll: st ? (st.enrollment_no || '') : '',
+      studentName: st ? (st.name || '') : ''
     }));
   };
 
   // When exam selection changes, auto-route to designated course instructor & pre-fill email
   const handleExamChange = (newExamId) => {
     const selected = exams.find(e => String(e.id) === String(newExamId));
-    const targetFac = facultyList.find(f => Number(f.id) === Number(selected?.course_coordinator_id));
+    let targetFac = null;
+    if (selected?.course_coordinator_id) {
+      targetFac = facultyList.find(f => Number(f.id) === Number(selected.course_coordinator_id));
+    }
+    if (!targetFac && selected?.course_department) {
+      targetFac = facultyList.find(f => f.department === selected.course_department);
+    }
+    if (!targetFac && facultyList.length > 0) {
+      targetFac = facultyList[0];
+    }
     setFormData(prev => ({
       ...prev,
       examId: newExamId,
@@ -161,17 +250,19 @@ export default function RaiseDoubtModal({
         console.warn('Browser EmailJS dispatch warning:', ejsErr);
       }
 
-      // 2. Submit to backend API to log in database and trigger live doubts stream
+      // 2. Submit to backend API to log in database and trigger live doubts stream & backend email
+      const isGeneral = !formData.studentId || formData.studentId === 'GENERAL';
       const payload = {
         examId: Number(formData.examId),
         roomId: Number(formData.roomId),
-        studentId: formData.studentId ? Number(formData.studentId) : null,
-        studentRoll: formData.studentRoll ? formData.studentRoll.trim() : null,
+        studentId: isGeneral ? null : Number(formData.studentId),
+        studentName: isGeneral ? 'General Room Question' : (formData.studentName || 'Student Candidate'),
+        studentRoll: isGeneral ? 'GENERAL' : (formData.studentRoll || 'GENERAL'),
         facultyId: Number(formData.facultyId) || null,
         recipientEmail: targetEmail,
         questionText: formData.questionText.trim(),
         urgency: formData.urgency,
-        invigilatorId: invigilatorUser?.faculty_id || null,
+        invigilatorId: invigilatorUser?.faculty_id || invigilatorUser?.id || null,
         invigilatorName: invigilatorUser?.name || 'Room Invigilator'
       };
 
@@ -323,6 +414,7 @@ export default function RaiseDoubtModal({
                 className="input-field"
                 value={formData.examId}
                 onChange={(e) => handleExamChange(e.target.value)}
+                required
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
@@ -333,6 +425,7 @@ export default function RaiseDoubtModal({
                   fontSize: '0.85rem'
                 }}
               >
+                <option value="">-- Select Active Examination --</option>
                 {exams.map(e => (
                   <option key={e.id} value={e.id}>
                     {e.exam_name} ({e.course_code || 'Exam'})
@@ -349,6 +442,7 @@ export default function RaiseDoubtModal({
                 className="input-field"
                 value={formData.roomId}
                 onChange={(e) => setFormData(prev => ({ ...prev, roomId: e.target.value }))}
+                required
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
@@ -359,6 +453,7 @@ export default function RaiseDoubtModal({
                   fontSize: '0.85rem'
                 }}
               >
+                <option value="">-- Select Examination Hall / Room --</option>
                 {rooms.map(r => (
                   <option key={r.id} value={r.id}>
                     Room {r.room_number} ({r.building || 'Campus'})
@@ -371,9 +466,14 @@ export default function RaiseDoubtModal({
           {/* Row 2: Student & Urgency */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                Student Raising Doubt *
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>
+                  Candidate / Doubt Scope (Optional)
+                </label>
+                <span style={{ fontSize: '0.7rem', color: formData.studentId === 'GENERAL' ? '#38bdf8' : '#fbbf24', fontWeight: 600 }}>
+                  {formData.studentId === 'GENERAL' ? 'Whole Classroom' : 'Student-Specific'}
+                </span>
+              </div>
               <select
                 className="input-field"
                 value={formData.studentId}
@@ -388,11 +488,16 @@ export default function RaiseDoubtModal({
                   fontSize: '0.85rem'
                 }}
               >
-                {students.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.enrollment_no} - {s.department})
-                  </option>
-                ))}
+                <option value="GENERAL">📢 General Room Question (Entire Classroom / Paper Ambiguity)</option>
+                {students.length > 0 && (
+                  <optgroup label="Room Candidates (Select if specific student)">
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>
+                        👤 {s.name} ({s.enrollment_no || 'No ID'}) {s.seat_number ? `· Seat ${s.seat_number}` : ''} {s.department ? `· ${s.department}` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
@@ -430,6 +535,7 @@ export default function RaiseDoubtModal({
               className="input-field"
               value={formData.facultyId}
               onChange={(e) => handleFacultySelect(e.target.value)}
+              required
               style={{
                 width: '100%',
                 padding: '0.65rem 0.85rem',
@@ -440,6 +546,7 @@ export default function RaiseDoubtModal({
                 fontSize: '0.85rem'
               }}
             >
+              <option value="">-- Select Subject Faculty Recipient --</option>
               {facultyList.map(f => {
                 const currentExamObj = exams.find(e => String(e.id) === String(formData.examId));
                 const isInstructor = currentExamObj && (Number(currentExamObj.course_coordinator_id) === Number(f.id));
