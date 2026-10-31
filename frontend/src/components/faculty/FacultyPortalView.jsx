@@ -9,7 +9,7 @@ import {
 import { api } from '../../api';
 import ResolveDoubtModal from './ResolveDoubtModal';
 import EmailNotificationModal from './EmailNotificationModal';
-import SendFacultyEmailModal from './SendFacultyEmailModal';
+import RaiseDoubtModal from './RaiseDoubtModal';
 
 export default function FacultyPortalView({ user }) {
   // Navigation tabs: 'duties' | 'doubts' | 'schedule' | 'emails'
@@ -42,7 +42,8 @@ export default function FacultyPortalView({ user }) {
   const [scheduleSearch, setScheduleSearch] = useState('');
 
   // Modals
-  const [isSendEmailModalOpen, setIsSendEmailModalOpen] = useState(false);
+  const [selectedDutyForDoubt, setSelectedDutyForDoubt] = useState(null);
+  const [isRaiseDoubtModalOpen, setIsRaiseDoubtModalOpen] = useState(false);
   const [selectedDoubtForResolve, setSelectedDoubtForResolve] = useState(null);
   const [selectedDoubtForEmail, setSelectedDoubtForEmail] = useState(null);
   const [selectedNotification, setSelectedNotification] = useState(null);
@@ -223,25 +224,6 @@ export default function FacultyPortalView({ user }) {
           >
             <RefreshCw size={14} className={loading ? 'spinning' : ''} />
             <span>Sync Live</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setIsSendEmailModalOpen(true)}
-            style={{
-              fontSize: '0.85rem',
-              padding: '0.55rem 1rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              background: 'rgba(56, 189, 248, 0.12)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              color: '#38bdf8'
-            }}
-          >
-            <Mail size={16} />
-            <span>Send Email to Faculty</span>
           </button>
         </div>
       </div>
@@ -557,25 +539,50 @@ export default function FacultyPortalView({ user }) {
                           </span>
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'right' }}>
-                          {!isConfirmed ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'flex-end' }}>
+                            {!isConfirmed ? (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => handleConfirmDuty(duty.duty_id)}
+                                style={{
+                                  fontSize: '0.78rem',
+                                  padding: '0.4rem 0.85rem',
+                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                }}
+                              >
+                                <Check size={14} style={{ marginRight: '0.3rem' }} />
+                                Confirm Duty
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <CheckCircle2 size={16} /> Confirmed
+                              </span>
+                            )}
+
                             <button
                               type="button"
-                              className="btn btn-primary"
-                              onClick={() => handleConfirmDuty(duty.duty_id)}
+                              className="btn btn-secondary"
+                              onClick={() => {
+                                setSelectedDutyForDoubt(duty);
+                                setIsRaiseDoubtModalOpen(true);
+                              }}
                               style={{
                                 fontSize: '0.78rem',
-                                padding: '0.4rem 0.85rem',
-                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                padding: '0.4rem 0.75rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                color: '#fbbf24'
                               }}
+                              title={`Request faculty doubt support for ${duty.exam_name} in Room ${duty.room_number}`}
                             >
-                              <Check size={14} style={{ marginRight: '0.3rem' }} />
-                              Confirm Duty
+                              <HelpCircle size={14} />
+                              <span>Request Doubt Support</span>
                             </button>
-                          ) : (
-                            <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <CheckCircle2 size={16} /> Confirmed
-                            </span>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1023,11 +1030,26 @@ export default function FacultyPortalView({ user }) {
       )}
 
       {/* Modals */}
-      <SendFacultyEmailModal
-        isOpen={isSendEmailModalOpen}
-        onClose={() => setIsSendEmailModalOpen(false)}
+      <RaiseDoubtModal
+        isOpen={isRaiseDoubtModalOpen}
+        onClose={() => {
+          setIsRaiseDoubtModalOpen(false);
+          setSelectedDutyForDoubt(null);
+        }}
+        currentExam={selectedDutyForDoubt ? {
+          id: selectedDutyForDoubt.exam_id,
+          name: selectedDutyForDoubt.exam_name,
+          exam_name: selectedDutyForDoubt.exam_name,
+          course_id: selectedDutyForDoubt.course_id,
+          course_coordinator_id: selectedDutyForDoubt.course_coordinator_id
+        } : null}
+        currentRoom={selectedDutyForDoubt ? {
+          id: selectedDutyForDoubt.room_id,
+          room_id: selectedDutyForDoubt.room_id,
+          room_number: selectedDutyForDoubt.room_number
+        } : null}
         onSuccess={() => {
-          showNotification('Real email successfully dispatched to faculty!');
+          showNotification('Doubt support request submitted & email dispatched to subject faculty!');
           loadData();
         }}
       />

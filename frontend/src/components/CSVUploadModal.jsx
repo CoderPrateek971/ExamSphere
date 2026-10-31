@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileText, CheckCircle, AlertCircle, X, FileSpreadsheet, Download } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, AlertCircle, X, FileSpreadsheet } from 'lucide-react';
 import { api } from '../api';
 
 export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSuccess }) {
@@ -80,25 +80,6 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
     } finally {
       setLoading(false);
     }
-  };
-
-  const downloadSampleTemplate = () => {
-    const templates = {
-      courses: 'course_code,course_name,department,semester,difficulty_level\nCSE3005,Software Engineering,CSE,4,3\nCSE3002,Database Management Systems,CSE,4,4\nECE2001,Digital Electronics,ECE,4,4\nME1001,Thermodynamics,ME,4,5',
-      rooms: 'room_number,building,capacity,rows_count,cols_count\nE2-101,E2,30,5,6\nE2-102,E2,30,5,6\nE2-201,E2,40,5,8\nAUD-HALL,Main Block,80,8,10',
-      faculty: 'faculty_code,name,email,department,designation,max_duties\nFAC101,Dr. Shilpa Mahajan,shilpa.mahajan@bmu.edu.in,CSE,Associate Professor,4\nFAC102,Dr. Nishtha Phutela,nishtha.phutela@bmu.edu.in,CSE,Assistant Professor,5\nFAC103,Dr. Harsh Taneja,harsh.taneja@bmu.edu.in,ECE,Associate Professor,4\nFAC104,Dr. Sukhandeep Kaur,sukhandeep.kaur@bmu.edu.in,ME,Assistant Professor,5',
-      students: 'enrollment_no,name,email,department,semester,program,enrolled_courses\n240101,Aarav Sharma,aarav.sharma@bmu.edu.in,CSE,4,B.Tech,"CSE3005, CSE3002"\n240102,Ananya Verma,ananya.verma@bmu.edu.in,CSE,4,B.Tech,"CSE3005, CSE3002"\n240103,Rohan Gupta,rohan.gupta@bmu.edu.in,ECE,4,B.Tech,"ECE2001, CSE3005"\n240104,Pooja Patel,pooja.patel@bmu.edu.in,ECE,4,B.Tech,"ECE2001, CSE3005"'
-    };
-    const content = templates[entityType] || templates.courses;
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${entityType}_template.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const isExcel = file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'));
@@ -206,29 +187,8 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
               />
             </div>
 
-            {/* Template Download Reference Button */}
-            <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={downloadSampleTemplate}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#818cf8',
-                  fontSize: '0.78rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'underline'
-                }}
-              >
-                <Download size={13} />
-                <span>Download sample {entityType}.csv template</span>
-              </button>
-
-              {file && (
+            {file && (
+              <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -247,8 +207,8 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
                 >
                   Clear file
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
               <button className="btn btn-secondary" onClick={handleClose}>Cancel</button>

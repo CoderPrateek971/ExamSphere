@@ -115,13 +115,9 @@ export const api = {
     });
   },
 
-  // Admin & Audit
+  // Admin
   getSystemSummary() {
     return this.request('/admin/system-summary');
-  },
-
-  getAuditLogs() {
-    return this.request('/admin/audit-logs');
   },
 
   // Module 3: Exam Scheduling & Timetable

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calendar, Clock, AlertTriangle, CheckCircle2, Plus,
-  Search, RefreshCw, Sparkles, Trash2, Edit, Printer,
+  Search, RefreshCw, Trash2, Edit, Printer,
   Filter, ShieldAlert, BookOpen, Layers, Users, Zap,
-  Check, ArrowRight, Info, AlertCircle, FileText, ShieldCheck
+  Check, Info, AlertCircle, FileText, ShieldCheck
 } from 'lucide-react';
 import { api } from '../../api';
 import CreateExamModal from './CreateExamModal';
@@ -161,21 +161,6 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
     }
   };
 
-  const handleSeedDemo = async () => {
-    if (window.confirm('Generate a balanced demo examination timetable across CSE, ECE, and ME cohorts?')) {
-      try {
-        setLoading(true);
-        const res = await api.seedDemoSchedule();
-        showNotification(res.message || 'Demo timetable seeded successfully!');
-        loadData();
-      } catch (err) {
-        showNotification(err.message || 'Failed to seed demo schedule.', true);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
   const handleClearAll = async () => {
     if (window.confirm('⚠️ DANGER: Are you sure you want to clear ALL scheduled examinations? This cannot be undone.')) {
       try {
@@ -195,7 +180,7 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
     setResolving(true);
     try {
       const res = await api.autoResolveConflicts();
-      showNotification(res.message || 'All scheduling conflicts successfully resolved by AI Optimizer!');
+      showNotification(res.message || 'Scheduling conflicts resolved.');
       await loadData();
     } catch (err) {
       showNotification(err.message || 'Failed to auto-resolve conflicts.', true);
@@ -255,63 +240,7 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
     .sort((a, b) => (a.exam_date || '').localeCompare(b.exam_date || '') || (a.start_time || '').localeCompare(b.start_time || ''));
 
   return (
-    <div className="panel-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Workflow Navigation Banner */}
-      <div style={{
-        background: 'linear-gradient(90deg, rgba(99,102,241,0.12), rgba(245,158,11,0.12))',
-        border: '1px solid rgba(99,102,241,0.25)',
-        borderRadius: '10px',
-        padding: '0.85rem 1.25rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '0.75rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <span style={{
-            background: '#f59e0b',
-            color: '#000',
-            borderRadius: '50%',
-            width: '24px',
-            height: '24px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '0.8rem',
-            fontWeight: 800
-          }}>2</span>
-          <div>
-            <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Step 2: Exam Scheduling & Timetable Matrix</strong>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: '#9ca3af' }}>
-              {courses.length} courses loaded from Step 1. Schedule exams into conflict-free dates & shifts. Scheduled exams flow directly into Step 3 (Smart Seating).
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          {onNavigateToStep && (
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => onNavigateToStep('master-data')}
-              style={{ fontSize: '0.82rem' }}
-            >
-              <span>⬅️ Back to Step 1: Master Data</span>
-            </button>
-          )}
-
-          {onNavigateToStep && exams.length > 0 && (
-            <button 
-              className="btn btn-primary" 
-              onClick={() => onNavigateToStep('seating')}
-              style={{ fontWeight: 600 }}
-            >
-              <span>Proceed to Step 3: Smart Seating ({exams.length} Exams Ready)</span>
-              <ArrowRight size={15} />
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="panel-card exam-scheduling-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Action Notification Banner */}
       {actionMessage && (
         <div
@@ -350,37 +279,24 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             style={{
               width: '44px',
               height: '44px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #f59e0b, #ec4899)',
+              borderRadius: '8px',
+              background: '#243447',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(245, 158, 11, 0.35)'
+              boxShadow: 'none'
             }}
           >
-            <Calendar size={22} color="#fff" />
+            <Calendar size={22} color="#a9c8e7" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800 }}>
                 Exam Scheduling & Timetable
               </h2>
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: '6px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34d399',
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
-                }}
-              >
-                MODULE 3 LIVE
-              </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Create examinations, generate automated conflict-free timetables, and detect room & cohort collisions
+              Schedule exams, review conflicts, and publish the timetable
             </p>
           </div>
         </div>
@@ -391,49 +307,16 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             type="button"
             className="btn btn-primary"
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
-              boxShadow: '0 0 16px rgba(99, 102, 241, 0.35)',
+              background: 'var(--primary)',
+              boxShadow: 'none',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.45rem'
             }}
             onClick={() => setIsGenerateModalOpen(true)}
           >
-            <Sparkles size={16} />
-            <span>Generate Timetable (AI Algorithm)</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{
-              background: hardConflictsCount > 0 ? 'linear-gradient(135deg, #f59e0b, #ef4444)' : 'linear-gradient(135deg, #10b981, #059669)',
-              boxShadow: hardConflictsCount > 0 ? '0 0 16px rgba(239, 68, 68, 0.4)' : '0 0 16px rgba(16, 185, 129, 0.3)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              fontWeight: 700
-            }}
-            disabled={resolving || exams.length === 0}
-            onClick={handleAutoResolveConflicts}
-            title="Automatically eliminate all conflicts by adjusting dates & times without common-student clashes"
-          >
-            {resolving ? (
-              <>
-                <RefreshCw size={15} className="spin" />
-                <span>Resolving Clashes...</span>
-              </>
-            ) : (
-              <>
-                <Zap size={15} />
-                <span>Auto-Resolve Conflicts (AI)</span>
-                {hardConflictsCount > 0 && (
-                  <span style={{ background: '#fff', color: '#dc2626', fontSize: '0.68rem', fontWeight: 900, padding: '0.1rem 0.35rem', borderRadius: '8px' }}>
-                    {hardConflictsCount}
-                  </span>
-                )}
-              </>
-            )}
+            <Calendar size={16} />
+            <span>Generate timetable</span>
           </button>
 
           <button
@@ -447,16 +330,6 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
           >
             <Plus size={16} />
             <span>Schedule Exam</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            title="Seed balanced demo examination timetable"
-            onClick={handleSeedDemo}
-          >
-            <Zap size={15} color="#fbbf24" />
-            <span>Seed Demo</span>
           </button>
 
           <button
@@ -488,10 +361,10 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
           gap: '1rem'
         }}
       >
-        {/* Card 1: Total Exams */}
         <div
+          className="schedule-metric"
           style={{
-            background: 'rgba(255, 255, 255, 0.02)',
+            background: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
             padding: '1.1rem 1.25rem',
@@ -504,10 +377,10 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
               Total Examinations
             </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#f3f4f6', marginTop: '0.15rem' }}>
+            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
               {totalExamsCount}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               Active on Master Schedule
             </div>
           </div>
@@ -516,11 +389,11 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
           </div>
         </div>
 
-        {/* Card 2: Hard Conflicts */}
         <div
+          className="schedule-metric schedule-metric--conflicts"
           style={{
-            background: hardConflictsCount > 0 ? 'rgba(244, 63, 94, 0.06)' : 'rgba(16, 185, 129, 0.06)',
-            border: `1px solid ${hardConflictsCount > 0 ? 'rgba(244, 63, 94, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
             padding: '1.1rem 1.25rem',
             display: 'flex',
@@ -535,10 +408,10 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
               Hard Conflict Status
             </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 800, color: hardConflictsCount > 0 ? '#f87171' : '#34d399', marginTop: '0.15rem' }}>
+            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: hardConflictsCount > 0 ? '#f38b94' : '#8fc5a1', marginTop: '0.15rem' }}>
               {hardConflictsCount === 0 ? '0 Clashes' : `${hardConflictsCount} Critical`}
             </div>
-            <div style={{ fontSize: '0.72rem', color: hardConflictsCount > 0 ? '#fca5a5' : '#6ee7b7' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               {hardConflictsCount === 0 ? '✓ 100% Conflict-Free' : 'Requires Re-scheduling'}
             </div>
           </div>
@@ -547,33 +420,32 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
           </div>
         </div>
 
-        {/* Card 3: Session Dates Span (Clickable to change dates span) */}
         <div
+          className="schedule-metric"
           style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(6, 182, 212, 0.35)',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
             padding: '1.1rem 1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            cursor: 'pointer',
+            cursor: 'default',
             transition: 'var(--transition)'
           }}
-          onClick={() => setIsDatesSpanModalOpen(true)}
-          title="Click to view and change the overarching timetable dates span across which exams can be scheduled"
+          title="Timetable date range"
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
                 Timetable Dates Span
               </span>
-              <span style={{ fontSize: '0.66rem', background: 'rgba(6, 182, 212, 0.18)', color: '#38bdf8', padding: '0.1rem 0.4rem', borderRadius: '5px', fontWeight: 800 }}>
+              <span style={{ fontSize: '0.66rem', background: '#243447', color: '#a9c8e7', padding: '0.1rem 0.4rem', borderRadius: '5px', fontWeight: 600 }}>
                 Active Session
               </span>
             </div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f3f4f6', marginTop: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {timetableSpan.startDate} <span style={{ color: '#06b6d4', margin: '0 0.25rem' }}>→</span> {timetableSpan.endDate}
+            <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {timetableSpan.startDate} <span style={{ color: 'var(--text-muted)', margin: '0 0.25rem' }}>→</span> {timetableSpan.endDate}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
               {totalSpanDays > 0 ? `${totalSpanDays} Total Window Days` : 'Dates Configured'} • {distinctDates.length} Exam Day{distinctDates.length === 1 ? '' : 's'} Scheduled
@@ -582,13 +454,13 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', borderColor: 'rgba(6, 182, 212, 0.4)', color: '#38bdf8' }}
+                style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsDatesSpanModalOpen(true);
                 }}
               >
-                <Calendar size={12} color="#06b6d4" />
+                <Calendar size={12} />
                 <span>Change Dates Span</span>
               </button>
             </div>
@@ -598,10 +470,10 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
           </div>
         </div>
 
-        {/* Card 4: Cognitive Difficulty Spacing */}
         <div
+          className="schedule-metric"
           style={{
-            background: 'rgba(255, 255, 255, 0.02)',
+            background: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
             padding: '1.1rem 1.25rem',
@@ -614,25 +486,26 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
               Average Exam Load
             </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#fbbf24', marginTop: '0.15rem' }}>
+            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
               {avgDiff} / 5.0
             </div>
-            <div style={{ fontSize: '0.72rem', color: warningsCount > 0 ? '#fbbf24' : '#a5b4fc' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               {warningsCount > 0 ? `${warningsCount} Spacing Warnings` : 'Optimal Prep Gaps'}
             </div>
           </div>
-          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Zap size={20} color="#f59e0b" />
+          <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#243447', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Zap size={20} color="#a9c8e7" />
           </div>
         </div>
       </div>
 
-      {/* Critical Conflict Banner with 1-Click AI Auto-Resolve */}
+      {/* Conflict notice */}
       {conflictData.hasConflicts && (
         <div
+          className="schedule-conflict-banner"
           style={{
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.12))',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
+            background: '#231f24',
+            border: '1px solid #55333a',
             borderRadius: '12px',
             padding: '1rem 1.25rem',
             display: 'flex',
@@ -640,7 +513,7 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
-            boxShadow: '0 4px 20px rgba(239, 68, 68, 0.15)'
+            boxShadow: 'none'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
@@ -660,10 +533,10 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#fca5a5' }}>
-                Scheduling Clashes Detected: {hardConflictsCount} Hard Collision{hardConflictsCount !== 1 ? 's' : ''} & {warningsCount} Warning{warningsCount !== 1 ? 's' : ''}
+                {hardConflictsCount} scheduling conflict{hardConflictsCount === 1 ? '' : 's'} need review
               </div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                Subjects sharing common enrolled students or identical cohorts are colliding on dates/slots. The AI Optimizer will dynamically adjust dates & time slots into a 100% collision-free schedule.
+                Exams share a room, time slot, or student cohort.
               </div>
             </div>
           </div>
@@ -677,37 +550,22 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             >
               <span>Inspect {hardConflictsCount} Issue{hardConflictsCount !== 1 ? 's' : ''}</span>
             </button>
-
             <button
               type="button"
               className="btn btn-primary"
-              style={{
-                background: 'linear-gradient(135deg, #ef4444, #f59e0b)',
-                boxShadow: '0 0 16px rgba(239, 68, 68, 0.4)',
-                fontSize: '0.82rem',
-                fontWeight: 700
-              }}
+              style={{ fontSize: '0.82rem' }}
               disabled={resolving}
               onClick={handleAutoResolveConflicts}
             >
-              {resolving ? (
-                <>
-                  <RefreshCw size={14} className="spin" />
-                  <span>Resolving Clashes...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={14} />
-                  <span>Auto-Resolve Conflicts (AI)</span>
-                </>
-              )}
+              {resolving ? <RefreshCw size={14} className="spin" /> : <Zap size={14} />}
+              <span>{resolving ? 'Resolving…' : 'Resolve conflicts'}</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Sub-Navigation Tabs */}
       <div
+        className="schedule-subnav"
         style={{
           display: 'flex',
           gap: '0.5rem',
@@ -891,8 +749,8 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
 
       {/* SUB-TAB 2: Examinations Roster Table */}
       {activeSubTab === 'table' && (
-        <div className="table-container">
-          <table className="custom-table">
+        <div className="table-container schedule-roster-table-wrap">
+          <table className="custom-table schedule-roster-table">
             <thead>
               <tr>
                 <th>Course</th>
@@ -1060,33 +918,6 @@ export default function ExamSchedulingView({ user, onNavigateToStep }) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {conflictData.hasConflicts && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{
-                    background: 'linear-gradient(135deg, #ef4444, #f59e0b)',
-                    boxShadow: '0 0 14px rgba(239, 68, 68, 0.35)',
-                    fontSize: '0.82rem',
-                    fontWeight: 700
-                  }}
-                  disabled={resolving}
-                  onClick={handleAutoResolveConflicts}
-                >
-                  {resolving ? (
-                    <>
-                      <RefreshCw size={14} className="spin" />
-                      <span>AI Resolving Clashes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={14} />
-                      <span>Auto-Resolve All Clashes (AI)</span>
-                    </>
-                  )}
-                </button>
-              )}
-
               <button
                 type="button"
                 className="btn btn-secondary"

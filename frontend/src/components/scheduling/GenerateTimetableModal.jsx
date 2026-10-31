@@ -448,7 +448,7 @@ export default function GenerateTimetableModal({
             >
               <ShieldCheck size={20} color="#818cf8" style={{ flexShrink: 0 }} />
               <div style={{ fontSize: '0.78rem', color: '#c7d2fe', lineHeight: 1.4 }}>
-                <strong style={{ color: '#fff' }}>AI Conflict-Free Guarantee:</strong> Subjects sharing common enrolled students or belonging to the same cohort are guaranteed to NEVER be scheduled on the same date and overlapping time slot.
+                <strong style={{ color: '#fff' }}>Conflict checks:</strong> Subjects with shared students or the same cohort will not be scheduled at overlapping times.
               </div>
             </div>
 

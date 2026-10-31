@@ -86,7 +86,8 @@ async function migrate() {
     await addColumnIfMissing('students', 'unique_id', 'VARCHAR(50) NULL AFTER enrollment_no');
     await addColumnIfMissing('students', 'stream_section', 'VARCHAR(50) NULL AFTER department');
     await addColumnIfMissing('students', 'batch_year', "VARCHAR(20) DEFAULT '2025' AFTER stream_section");
-    await addColumnIfMissing('students', 'is_repeat_student', 'BOOLEAN DEFAULT FALSE AFTER program');
+    await addColumnIfMissing('students', 'enrolled_courses', 'TEXT NULL AFTER program');
+    await addColumnIfMissing('students', 'is_repeat_student', 'BOOLEAN DEFAULT FALSE AFTER enrolled_courses');
 
     // 5. faculty
     await addColumnIfMissing('faculty', 'contact_number', 'VARCHAR(30) NULL AFTER email');

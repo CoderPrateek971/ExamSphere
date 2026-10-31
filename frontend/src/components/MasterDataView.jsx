@@ -100,7 +100,7 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
   return (
     <div className="panel-card">
       {/* Workflow Navigation Banner */}
-      <div style={{
+      <div className="workflow-banner workflow-banner--master" style={{
         background: 'linear-gradient(90deg, rgba(99,102,241,0.12), rgba(6,182,212,0.12))',
         border: '1px solid rgba(99,102,241,0.25)',
         borderRadius: '10px',
@@ -142,7 +142,7 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
             title="Wipe all database records to start with a fresh clean state"
           >
             <Trash2 size={14} />
-            <span>Clear All Data</span>
+            <span>Reset database</span>
           </button>
 
           {onNavigateToStep && (
@@ -232,10 +232,11 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
       </div>
 
       {/* Sub tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>
+      <div className="master-data-tabs" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>
         {['courses', 'rooms', 'faculty', 'students'].map((type) => (
           <button
             key={type}
+            className={`master-data-tab ${activeSubTab === type ? 'active' : ''}`}
             onClick={() => setActiveSubTab(type)}
             style={{
               background: activeSubTab === type ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
@@ -262,14 +263,8 @@ export default function MasterDataView({ user, onDataChange, onNavigateToStep })
               No {activeSubTab} data found in the database.
             </p>
             <p style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Upload your {activeSubTab} (.xlsx or .csv) file to populate records.
+              Use the Upload {activeSubTab.toUpperCase()} button above to add records.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
-              <button className="btn btn-emerald" onClick={() => setIsCSVModalOpen(true)}>
-                <Upload size={14} />
-                <span>Upload {activeSubTab.toUpperCase()} (.xlsx / .csv)</span>
-              </button>
-            </div>
           </div>
         ) : (
           <>

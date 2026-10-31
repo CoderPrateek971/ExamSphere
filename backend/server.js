@@ -73,7 +73,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log('====================================================');
   console.log(` ExamSphere Backend Server running on port ${PORT}`);
   console.log(` Health Check: http://localhost:${PORT}/api/health`);
@@ -85,4 +85,14 @@ app.listen(PORT, async () => {
   // Ensure all schema columns and tables are synchronized
   const { runMigration } = require('./database/migrate-schema');
   await runMigration().catch((e) => console.warn('Schema sync note:', e.message));
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use by another process.`);
+    console.error(`💡 Tip: Free the port by running: lsof -ti :${PORT} | xargs kill -9`);
+  } else {
+    console.error('❌ Server startup error:', err.message);
+  }
+  process.exit(1);
 });

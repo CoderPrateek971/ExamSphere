@@ -40,6 +40,8 @@ async function runMigration() {
   await ensureColumn('students', 'unique_id', 'VARCHAR(50) NULL');
   await ensureColumn('students', 'stream_section', 'VARCHAR(50) NULL');
   await ensureColumn('students', 'batch', 'VARCHAR(20) NULL');
+  await ensureColumn('students', 'batch_year', "VARCHAR(20) DEFAULT '2025'");
+  await ensureColumn('students', 'enrolled_courses', 'TEXT NULL');
   await ensureColumn('students', 'is_repeat_student', 'BOOLEAN DEFAULT FALSE');
 
   // 5. Exams
@@ -109,6 +111,46 @@ async function runMigration() {
     }
   } catch (mapErr) {
     console.warn('Course instructor mapping note:', mapErr.message);
+  }
+
+  // 8. Ensure all students with enrolled_courses are mapped in student_courses table
+  try {
+    const [unlinkedStudents] = await query(`
+      SELECT s.id, s.enrollment_no, s.enrolled_courses, s.department, s.semester
+      FROM students s
+      WHERE s.enrolled_courses IS NOT NULL AND s.enrolled_courses != ''
+        AND NOT EXISTS (SELECT 1 FROM student_courses sc WHERE sc.student_id = s.id)
+    `);
+    if (unlinkedStudents.length > 0) {
+      console.log(`🔄 Syncing course enrollments for ${unlinkedStudents.length} students...`);
+      for (const s of unlinkedStudents) {
+        const codes = (s.enrolled_courses || '').split(/[,;]+/).map(c => c.trim().toUpperCase()).filter(Boolean);
+        for (const code of codes) {
+          let [cRows] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+          let courseId = cRows[0]?.id;
+          if (!courseId) {
+            const [cRes] = await query(
+              'INSERT INTO courses (course_code, course_name, department, semester, difficulty_level) VALUES (?, ?, ?, ?, 3) ON DUPLICATE KEY UPDATE course_code = course_code',
+              [code, code + ' Course', s.department || 'CSE', s.semester || 1]
+            );
+            courseId = cRes?.insertId;
+            if (!courseId) {
+              const [cFound] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+              courseId = cFound[0]?.id;
+            }
+          }
+          if (courseId) {
+            await query(
+              'INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)',
+              [s.id, courseId]
+            );
+          }
+        }
+      }
+      console.log(`✅ Synchronized course enrollments into student_courses.`);
+    }
+  } catch (syncErr) {
+    console.warn('Student course sync note:', syncErr.message);
   }
 
   console.log('✅ Database schema verified and synchronized successfully!');

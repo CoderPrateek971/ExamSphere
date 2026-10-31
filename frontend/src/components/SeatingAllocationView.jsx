@@ -1066,16 +1066,6 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
     }
   };
 
-  const handleSeedDemoExams = async () => {
-    try {
-      const res = await api.seedDemoExams();
-      setFeedback({ type: 'success', message: res.message });
-      await loadExamsAndRooms();
-    } catch (err) {
-      setFeedback({ type: 'error', message: err.message });
-    }
-  };
-
   const getCourseColor = (courseCode) => {
     if (!courseCode) return { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)', text: '#9ca3af' };
     const hash = courseCode.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -1325,7 +1315,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
   return (
     <div className="seating-module">
       {/* Workflow Navigation Banner */}
-      <div style={{
+      <div className="workflow-banner workflow-banner--seating" style={{
         background: 'linear-gradient(90deg, rgba(6,182,212,0.12), rgba(16,185,129,0.12))',
         border: '1px solid rgba(6,182,212,0.3)',
         borderRadius: '10px',
@@ -1700,7 +1690,6 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
             <h1 className="view-title" style={{ margin: 0 }}>Smart Room & Seating Allocation</h1>
-            <span className="badge badge-emerald">Module 4 Live</span>
           </div>
           <p className="view-subtitle" style={{ margin: 0 }}>
             Choose a subject, then auto-generate optimal anti-cheating seating or manually assign desks interactively.
@@ -1727,12 +1716,6 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
             <span>Existing Seating Plans ({allocatedExamsCount})</span>
           </button>
 
-          {exams.length === 0 && (
-            <button className="btn btn-emerald" onClick={handleSeedDemoExams}>
-              <Sparkles size={16} />
-              <span>Create Demo Exams</span>
-            </button>
-          )}
           {/* Download CSV: Only visible after creating plan automatically or after saving in manual */}
           {((allocationMode === 'AUTOMATIC' && allocationData && allocationData.totalAllocated > 0) ||
             (allocationMode === 'MANUAL' && allocationData && allocationData.totalAllocated > 0)) && (
@@ -1823,7 +1806,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <BookOpen size={18} color="var(--primary)" />
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Step 1: Choose Subject / Examination</h2>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Choose an exam</h2>
           </div>
           {selectedExam && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1934,7 +1917,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
           <div style={{ marginBottom: '1.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <Layers size={18} color="var(--primary)" />
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Step 2: Choose Allocation Method</h2>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Choose an allocation method</h2>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
@@ -2726,17 +2709,8 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                     Ready to Generate Seating Plan
                   </h3>
                   <p style={{ maxWidth: '520px', margin: '0 auto 1.5rem', fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
-                    Configure your anti-cheating strategy above (e.g. <em>Alternate Column Seating</em>) and click the blue <strong>"Generate Seating Plan"</strong> button to compute and display the automated seating arrangement.
+                    Choose an exam and strategy above, then generate the seating plan to see the room allocation here.
                   </p>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleRunAllocation}
-                    disabled={allocating || !selectedExamId}
-                    style={{ padding: '0.7rem 1.6rem', fontSize: '0.95rem', fontWeight: 600 }}
-                  >
-                    <Sparkles size={16} />
-                    <span>{allocating ? 'Computing Optimal Grid...' : 'Generate Seating Plan'}</span>
-                  </button>
                 </div>
               )}
 
