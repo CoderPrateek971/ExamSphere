@@ -14,28 +14,8 @@ class DutyService {
    * Helper to ensure basic exams exist in database for duty assignment
    */
   async ensureSampleExamsExist() {
-    try {
-      const [countRows] = await query('SELECT COUNT(*) as count FROM exams');
-      if (countRows[0].count === 0) {
-        const [courseRows] = await query('SELECT id, course_code FROM courses');
-        if (courseRows.length > 0) {
-          const c1 = courseRows[0]?.id;
-          const c2 = courseRows[1]?.id || c1;
-          const c3 = courseRows[2]?.id || c1;
-          const c4 = courseRows[3]?.id || c1;
-
-          await query(`
-            INSERT INTO exams (course_id, exam_name, exam_type, exam_date, start_time, end_time, duration_minutes, status) VALUES
-            (?, 'CSE3005 Software Engineering End-Term', 'END_TERM', '2026-11-20', '09:30:00', '12:30:00', 180, 'SCHEDULED'),
-            (?, 'CSE3002 Database Systems Final Exam', 'END_TERM', '2026-11-22', '09:30:00', '12:30:00', 180, 'SCHEDULED'),
-            (?, 'ECE2001 Digital Electronics Mid-Term', 'MID_TERM', '2026-11-24', '14:00:00', '17:00:00', 180, 'SCHEDULED'),
-            (?, 'ME1001 Thermodynamics End-Term', 'END_TERM', '2026-11-26', '09:30:00', '12:30:00', 180, 'SCHEDULED')
-          `, [c1, c2, c3, c4]);
-        }
-      }
-    } catch (e) {
-      console.warn('Auto-seed exams note:', e.message);
-    }
+    // Disabled: exams must only be generated when user explicitly triggers generation
+    return;
   }
 
   /**

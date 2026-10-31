@@ -54,40 +54,46 @@ router.post('/upload-csv/:entityType', uploadCSV.single('file'), uploadMasterCSV
 
 // Reset / Wipe all records from database (clean slate for new file uploads)
 router.post('/reset-database', async (req, res) => {
+  const { pool } = require('../config/db');
+  if (!pool) return res.status(500).json({ success: false, message: 'Database not connected' });
+  const conn = await pool.getConnection();
   try {
-    const { query } = require('../config/db');
-    const safeTruncate = async (tbl) => {
+    await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+    const tables = [
+      'invigilation_duties',
+      'seat_allocations',
+      'attendance',
+      'stationery_records',
+      'question_paper_logistics',
+      'exam_scheduling_discussions',
+      'ufm_reports',
+      'doubt_requests',
+      'notifications',
+      'room_constraints',
+      'exams',
+      'course_section_instructors',
+      'student_courses',
+      'courses',
+      'rooms',
+      'faculty',
+      'students',
+      'audit_logs'
+    ];
+    for (const tbl of tables) {
       try {
-        await query(`TRUNCATE TABLE \`${tbl}\``);
+        await conn.query(`DELETE FROM \`${tbl}\``);
       } catch (err) {
-        if (err.errno !== 1146) console.warn(`Truncate note for ${tbl}:`, err.message);
+        if (err.errno !== 1146) console.warn(`Delete note for ${tbl}:`, err.message);
       }
-    };
-
-    await query('SET FOREIGN_KEY_CHECKS = 0');
-    await safeTruncate('invigilation_duties');
-    await safeTruncate('seat_allocations');
-    await safeTruncate('attendance');
-    await safeTruncate('stationery_records');
-    await safeTruncate('question_paper_logistics');
-    await safeTruncate('exam_scheduling_discussions');
-    await safeTruncate('ufm_reports');
-    await safeTruncate('doubt_requests');
-    await safeTruncate('notifications');
-    await safeTruncate('room_constraints');
-    await safeTruncate('exams');
-    await safeTruncate('course_section_instructors');
-    await safeTruncate('student_courses');
-    await safeTruncate('courses');
-    await safeTruncate('rooms');
-    await safeTruncate('faculty');
-    await safeTruncate('students');
-    await query('DELETE FROM users WHERE role != "ADMIN"');
-    await safeTruncate('audit_logs');
-    await query('SET FOREIGN_KEY_CHECKS = 1');
+    }
+    await conn.query('DELETE FROM users WHERE role != "ADMIN"');
+    await conn.query('SET FOREIGN_KEY_CHECKS = 1');
     res.json({ success: true, message: 'All database records cleared successfully. System is now clean and ready for fresh file uploads.' });
   } catch (err) {
+    await conn.query('SET FOREIGN_KEY_CHECKS = 1').catch(() => {});
     res.status(500).json({ success: false, message: err.message });
+  } finally {
+    conn.release();
   }
 });
 
@@ -98,36 +104,41 @@ router.delete('/clear/:entityType', async (req, res) => {
   if (!validTypes.includes(entityType)) {
     return res.status(400).json({ success: false, message: `Invalid entity type: ${entityType}` });
   }
+  const { pool } = require('../config/db');
+  if (!pool) return res.status(500).json({ success: false, message: 'Database not connected' });
+  const conn = await pool.getConnection();
   try {
-    const { query } = require('../config/db');
-    const safeTruncate = async (tbl) => {
-      try {
-        await query(`TRUNCATE TABLE \`${tbl}\``);
-      } catch (err) {
-        if (err.errno !== 1146) console.warn(`Truncate note for ${tbl}:`, err.message);
-      }
-    };
-
-    await query('SET FOREIGN_KEY_CHECKS = 0');
+    await conn.query('SET FOREIGN_KEY_CHECKS = 0');
     if (entityType === 'courses') {
-      await safeTruncate('courses');
-      await safeTruncate('student_courses');
-      await safeTruncate('course_section_instructors');
+      await conn.query('DELETE FROM seat_allocations');
+      await conn.query('DELETE FROM invigilation_duties');
+      await conn.query('DELETE FROM attendance');
+      await conn.query('DELETE FROM exams');
+      await conn.query('DELETE FROM courses');
+      await conn.query('DELETE FROM student_courses');
+      await conn.query('DELETE FROM course_section_instructors');
     } else if (entityType === 'rooms') {
-      await safeTruncate('rooms');
-      await safeTruncate('room_constraints');
+      await conn.query('DELETE FROM seat_allocations');
+      await conn.query('DELETE FROM rooms');
+      await conn.query('DELETE FROM room_constraints');
     } else if (entityType === 'faculty') {
-      await safeTruncate('faculty');
-      await query('DELETE FROM users WHERE role = "FACULTY"');
+      await conn.query('DELETE FROM invigilation_duties');
+      await conn.query('DELETE FROM faculty');
+      await conn.query('DELETE FROM users WHERE role = "FACULTY"');
     } else if (entityType === 'students') {
-      await safeTruncate('students');
-      await safeTruncate('student_courses');
-      await query('DELETE FROM users WHERE role = "STUDENT"');
+      await conn.query('DELETE FROM seat_allocations');
+      await conn.query('DELETE FROM attendance');
+      await conn.query('DELETE FROM students');
+      await conn.query('DELETE FROM student_courses');
+      await conn.query('DELETE FROM users WHERE role = "STUDENT"');
     }
-    await query('SET FOREIGN_KEY_CHECKS = 1');
+    await conn.query('SET FOREIGN_KEY_CHECKS = 1');
     res.json({ success: true, message: `All ${entityType} deleted successfully.` });
   } catch (err) {
+    await conn.query('SET FOREIGN_KEY_CHECKS = 1').catch(() => {});
     res.status(500).json({ success: false, message: err.message });
+  } finally {
+    conn.release();
   }
 });
 
