@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, HelpCircle, Send, AlertTriangle, CheckCircle2, 
-  Mail, Clock, User, Building, BookOpen, ShieldAlert 
+  Mail, Clock, User, Building, BookOpen, ShieldAlert, Edit3
 } from 'lucide-react';
+import emailjs from '@emailjs/browser';
+import { EMAILJS_CONFIG } from '../../config/emailjsConfig';
 import { api } from '../../api';
 
 export default function RaiseDoubtModal({
@@ -26,6 +28,7 @@ export default function RaiseDoubtModal({
     studentRoll: '',
     studentName: '',
     facultyId: '',
+    recipientEmail: '',
     urgency: 'HIGH',
     questionText: ''
   });
@@ -63,7 +66,9 @@ export default function RaiseDoubtModal({
         const defaultExamId = currentExam?.id || currentExam?.exam_id || (examData[0] ? examData[0].id : '');
         const defaultRoomId = currentRoom?.id || currentRoom?.room_id || (roomData[0] ? roomData[0].id : '');
         const selectedExam = examData.find(e => String(e.id) === String(defaultExamId));
-        const defaultFacultyId = selectedExam?.course_coordinator_id || (facData[0] ? facData[0].id : '');
+        const designatedFaculty = facData.find(f => Number(f.id) === Number(selectedExam?.course_coordinator_id)) || facData[0];
+        const defaultFacultyId = designatedFaculty ? designatedFaculty.id : '';
+        const defaultRecipientEmail = designatedFaculty?.email || '';
         const defaultStudent = initialStudent || studData[0] || null;
 
         setFormData({
@@ -73,6 +78,7 @@ export default function RaiseDoubtModal({
           studentRoll: defaultStudent ? (defaultStudent.enrollment_no || defaultStudent.student_roll) : '',
           studentName: defaultStudent ? (defaultStudent.name || defaultStudent.student_name) : '',
           facultyId: defaultFacultyId,
+          recipientEmail: defaultRecipientEmail,
           urgency: 'HIGH',
           questionText: ''
         });
@@ -97,13 +103,25 @@ export default function RaiseDoubtModal({
     }));
   };
 
-  // When exam selection changes, auto-route to designated course instructor
+  // When exam selection changes, auto-route to designated course instructor & pre-fill email
   const handleExamChange = (newExamId) => {
     const selected = exams.find(e => String(e.id) === String(newExamId));
+    const targetFac = facultyList.find(f => Number(f.id) === Number(selected?.course_coordinator_id));
     setFormData(prev => ({
       ...prev,
       examId: newExamId,
-      facultyId: selected?.course_coordinator_id || prev.facultyId
+      facultyId: targetFac ? targetFac.id : prev.facultyId,
+      recipientEmail: targetFac?.email || prev.recipientEmail
+    }));
+  };
+
+  // When faculty selection changes, update recipient email accordingly
+  const handleFacultySelect = (newFacultyId) => {
+    const targetFac = facultyList.find(f => String(f.id) === String(newFacultyId));
+    setFormData(prev => ({
+      ...prev,
+      facultyId: newFacultyId,
+      recipientEmail: targetFac?.email || prev.recipientEmail
     }));
   };
 
@@ -111,19 +129,55 @@ export default function RaiseDoubtModal({
     e.preventDefault();
     setError(null);
 
-    if (!formData.examId || !formData.roomId || !formData.facultyId || !formData.questionText.trim()) {
-      setError('Please fill in all required fields (Exam, Room, Faculty, and Doubt Text).');
+    const targetEmail = (formData.recipientEmail || '').trim();
+
+    if (!formData.examId || !formData.roomId || !targetEmail || !formData.questionText.trim()) {
+      setError('Please fill in all required fields (Exam, Room, Recipient Email, and Doubt Text).');
       return;
     }
 
     setSubmitting(true);
     try {
+      // 1. Direct browser EmailJS dispatch if credentials configured
+      if (EMAILJS_CONFIG.SERVICE_ID && EMAILJS_CONFIG.TEMPLATE_ID && EMAILJS_CONFIG.PUBLIC_KEY) {
+        try {
+          const roomObj = rooms.find(r => String(r.id) === String(formData.roomId));
+          const examObj = exams.find(e => String(e.id) === String(formData.examId));
+          const roomStr = roomObj?.room_number || currentRoom?.room_number || 'Exam Hall';
+          const emailSubject = `[ExamSphere URGENT] Question Paper Doubt in Room ${roomStr}`;
+          const emailBody = `Urgent Student Doubt: ${formData.questionText.trim()}\n\nExam: ${examObj?.exam_name || 'Exam'}\nInvigilator: ${invigilatorUser?.name || 'Room Invigilator'}\nRequired Location: Please visit Room ${roomStr} immediately to address this question.`;
+
+          await emailjs.send(
+            EMAILJS_CONFIG.SERVICE_ID.trim(),
+            EMAILJS_CONFIG.TEMPLATE_ID.trim(),
+            {
+              title: emailSubject,
+              subject: emailSubject,
+              name: targetEmail.split('@')[0],
+              to_name: targetEmail.split('@')[0],
+              to_email: targetEmail,
+              recipient_email: targetEmail,
+              message: emailBody,
+              room_number: roomStr,
+              from_name: invigilatorUser?.name || 'Exam Invigilator',
+              from_email: invigilatorUser?.email || 'invigilator@examsphere.edu',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            },
+            EMAILJS_CONFIG.PUBLIC_KEY.trim()
+          );
+        } catch (ejsErr) {
+          console.warn('Browser EmailJS dispatch warning:', ejsErr);
+        }
+      }
+
+      // 2. Submit to backend API to log in database and trigger live doubts stream
       const payload = {
         examId: Number(formData.examId),
         roomId: Number(formData.roomId),
         studentId: formData.studentId ? Number(formData.studentId) : null,
         studentRoll: formData.studentRoll ? formData.studentRoll.trim() : null,
-        facultyId: Number(formData.facultyId),
+        facultyId: Number(formData.facultyId) || null,
+        recipientEmail: targetEmail,
         questionText: formData.questionText.trim(),
         urgency: formData.urgency,
         invigilatorId: invigilatorUser?.faculty_id || null,
@@ -379,12 +433,12 @@ export default function RaiseDoubtModal({
           {/* Row 3: Target Subject Faculty */}
           <div>
             <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-              Subject Faculty Recipient (Will receive email notification) *
+              Subject Faculty Recipient (Course Instructor) *
             </label>
             <select
               className="input-field"
               value={formData.facultyId}
-              onChange={(e) => setFormData(prev => ({ ...prev, facultyId: e.target.value }))}
+              onChange={(e) => handleFacultySelect(e.target.value)}
               style={{
                 width: '100%',
                 padding: '0.65rem 0.85rem',
@@ -405,6 +459,49 @@ export default function RaiseDoubtModal({
                 );
               })}
             </select>
+          </div>
+
+          {/* Row 3b: Send Email To (Pre-filled with teaching faculty email, editable to replace) */}
+          <div style={{
+            background: 'rgba(56, 189, 248, 0.05)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '10px',
+            padding: '0.85rem 1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+                <Mail size={14} color="#38bdf8" />
+                <span>Email To (Recipient Email Address) *</span>
+              </label>
+              <span style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Edit3 size={11} color="#38bdf8" />
+                Pre-filled with teaching faculty • Editable / Replaceable
+              </span>
+            </div>
+            <div>
+              <input
+                type="email"
+                className="input-field"
+                value={formData.recipientEmail}
+                onChange={(e) => setFormData(prev => ({ ...prev, recipientEmail: e.target.value }))}
+                placeholder="e.g. instructor@university.edu"
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.65rem 0.85rem',
+                  background: 'rgba(15, 23, 42, 0.9)',
+                  border: '1px solid rgba(56, 189, 248, 0.45)',
+                  borderRadius: '8px',
+                  color: '#38bdf8',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.72rem', color: '#94a3b8' }}>
+              💡 Pre-filled with the teaching faculty for this subject. You can edit or replace this email if you want to notify a co-instructor, TA, or alternative address.
+            </p>
           </div>
 
           {/* Row 4: Question / Doubt Text */}

@@ -171,15 +171,6 @@ export default function App() {
               </span>
             </div>
 
-            <button
-              className="btn btn-secondary"
-              onClick={() => handleRequestSwitchRole('ADMIN')}
-              title="Switch to Admin Portal"
-              style={{ marginRight: '0.5rem' }}
-            >
-              <span>Admin Portal</span>
-            </button>
-
             <button className="btn btn-secondary" onClick={handleLogout} title="Sign Out">
               <LogOut size={16} />
               <span>Logout</span>
@@ -261,7 +252,6 @@ export default function App() {
           setIsLoginOpen(true);
         }}
         onLogout={handleLogout}
-        onSwitchRole={handleRequestSwitchRole}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />

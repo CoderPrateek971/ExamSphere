@@ -4,15 +4,13 @@ import {
   LogIn,
   LogOut,
   Layers,
-  UserCheck,
-  Lock
+  UserCheck
 } from 'lucide-react';
 
 export default function Navbar({
   user,
   onOpenLogin,
   onLogout,
-  onSwitchRole,
   activeTab,
   setActiveTab
 }) {
@@ -57,40 +55,6 @@ export default function Navbar({
 
         {user ? (
           <>
-            {/* Secure role switching */}
-            {onSwitchRole && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{
-                  fontSize: '0.76rem',
-                  padding: '0.35rem 0.65rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  border: `1px solid ${
-                    isFaculty
-                      ? 'rgba(99, 102, 241, 0.4)'
-                      : 'rgba(56, 189, 248, 0.4)'
-                  }`
-                }}
-                onClick={() =>
-                  onSwitchRole(isFaculty ? 'ADMIN' : 'FACULTY')
-                }
-                title={`Authentication required to switch to ${
-                  isFaculty ? 'Administrator' : 'Faculty'
-                }`}
-              >
-                <Lock
-                  size={12}
-                  color={isFaculty ? '#818cf8' : '#38bdf8'}
-                />
-                <span>
-                  Switch to {isFaculty ? 'Admin' : 'Faculty'}
-                </span>
-              </button>
-            )}
-
             {/* Current user and role */}
             <div
               className="user-badge"
