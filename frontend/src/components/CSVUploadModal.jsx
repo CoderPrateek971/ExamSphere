@@ -67,6 +67,11 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
     setError(null);
     try {
       const res = await api.uploadCSV(entityType, file);
+      if (res.summary && res.summary.failedRowsCount > 0 && res.summary.insertedOrUpdated === 0) {
+        const firstErr = res.summary.errors?.[0]?.error || 'Failed to ingest records due to missing required field(s).';
+        setError(firstErr);
+        return;
+      }
       setResult(res.summary);
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
@@ -107,6 +112,15 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
             <p style={{ fontSize: '0.82rem', color: '#9ca3af' }}>
               Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong> in Excel (.xlsx) or CSV (.csv)
             </p>
+            <div style={{ marginTop: '0.4rem', fontSize: '0.73rem', color: '#94a3b8', background: 'rgba(255, 255, 255, 0.04)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
+              <span>Required schema: </span>
+              <strong style={{ color: '#a5b4fc', fontFamily: 'monospace' }}>
+                {entityType === 'students' && 'enrollment_no, name, email, department, semester, program, enrolled_courses'}
+                {entityType === 'faculty' && 'faculty_code, name, email, department, designation, max_duties'}
+                {entityType === 'courses' && 'course_code, course_name, department, semester, difficulty_level'}
+                {entityType === 'rooms' && 'room_number, building, capacity, rows_count, cols_count'}
+              </strong>
+            </div>
           </div>
           <button className="close-btn" onClick={handleClose}><X size={20} /></button>
         </div>
@@ -135,6 +149,15 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
             {result.sheetSummary && (
               <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1rem' }}>
                 Sheets processed: {result.sheetSummary.courses} courses, {result.sheetSummary.rooms} rooms, {result.sheetSummary.faculty} faculty.
+              </div>
+            )}
+            {result.errors && result.errors.length > 0 && (
+              <div style={{ marginTop: '0.75rem', marginBottom: '1rem', textAlign: 'left', background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.25)', padding: '0.6rem 0.85rem', borderRadius: '8px', fontSize: '0.76rem', color: '#fb7185' }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.3rem' }}>Row Ingestion Warnings:</div>
+                {result.errors.slice(0, 3).map((errItem, i) => (
+                  <div key={i} style={{ marginBottom: '0.2rem' }}>• Row {errItem.rowNumber}: {errItem.error}</div>
+                ))}
+                {result.errors.length > 3 && <div>...and {result.errors.length - 3} more row(s) skipped.</div>}
               </div>
             )}
             <button className="btn btn-primary" onClick={handleClose} style={{ marginTop: '0.5rem' }}>
