@@ -50,7 +50,14 @@ router.put('/rooms/:id', updateRoom);
 router.delete('/rooms/:id', deleteRoom);
 
 // Bulk CSV Upload for any entity ('students', 'faculty', 'courses', 'rooms')
-router.post('/upload-csv/:entityType', uploadCSV.single('file'), uploadMasterCSV);
+router.post('/upload-csv/:entityType', (req, res, next) => {
+  uploadCSV.single('file')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+    }
+    next();
+  });
+}, uploadMasterCSV);
 
 // Reset / Wipe all records from database (clean slate for new file uploads)
 router.post('/reset-database', async (req, res) => {

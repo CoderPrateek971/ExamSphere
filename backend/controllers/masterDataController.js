@@ -1,3 +1,4 @@
+const path = require('path');
 const masterDataService = require('../services/masterDataService');
 const csvIngestionService = require('../services/csvIngestionService');
 
@@ -157,7 +158,12 @@ async function deleteRoom(req, res) {
 // ===================== BULK EXCEL & CSV SPREADSHEET UPLOAD =====================
 async function uploadMasterCSV(req, res) {
   if (!req.file) {
-    return res.status(400).json({ success: false, message: 'No spreadsheet file (.xlsx, .xls, or .csv) uploaded.' });
+    return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+  }
+
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  if (ext !== '.csv') {
+    return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
   }
 
   const { entityType } = req.params;

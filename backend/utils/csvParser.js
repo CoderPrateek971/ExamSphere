@@ -125,6 +125,10 @@ function parseAndValidateCSV(filePath, entityType) {
       } catch (err) {
         return reject(err);
       }
+    } else if (ext !== '.csv') {
+      const err = new Error('Only CSV files are allowed');
+      err.statusCode = 400;
+      return reject(err);
     }
 
     const validRows = [];
