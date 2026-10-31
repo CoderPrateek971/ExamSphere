@@ -56,26 +56,34 @@ router.post('/upload-csv/:entityType', uploadCSV.single('file'), uploadMasterCSV
 router.post('/reset-database', async (req, res) => {
   try {
     const { query } = require('../config/db');
+    const safeTruncate = async (tbl) => {
+      try {
+        await query(`TRUNCATE TABLE \`${tbl}\``);
+      } catch (err) {
+        if (err.errno !== 1146) console.warn(`Truncate note for ${tbl}:`, err.message);
+      }
+    };
+
     await query('SET FOREIGN_KEY_CHECKS = 0');
-    await query('TRUNCATE TABLE invigilation_duties');
-    await query('TRUNCATE TABLE seat_allocations');
-    await query('TRUNCATE TABLE attendance');
-    await query('TRUNCATE TABLE stationery_records');
-    await query('TRUNCATE TABLE question_paper_logistics');
-    await query('TRUNCATE TABLE exam_scheduling_discussions');
-    await query('TRUNCATE TABLE ufm_reports');
-    await query('TRUNCATE TABLE doubt_requests');
-    await query('TRUNCATE TABLE notifications');
-    await query('TRUNCATE TABLE room_constraints');
-    await query('TRUNCATE TABLE exams');
-    await query('TRUNCATE TABLE course_section_instructors');
-    await query('TRUNCATE TABLE student_courses');
-    await query('TRUNCATE TABLE courses');
-    await query('TRUNCATE TABLE rooms');
-    await query('TRUNCATE TABLE faculty');
-    await query('TRUNCATE TABLE students');
+    await safeTruncate('invigilation_duties');
+    await safeTruncate('seat_allocations');
+    await safeTruncate('attendance');
+    await safeTruncate('stationery_records');
+    await safeTruncate('question_paper_logistics');
+    await safeTruncate('exam_scheduling_discussions');
+    await safeTruncate('ufm_reports');
+    await safeTruncate('doubt_requests');
+    await safeTruncate('notifications');
+    await safeTruncate('room_constraints');
+    await safeTruncate('exams');
+    await safeTruncate('course_section_instructors');
+    await safeTruncate('student_courses');
+    await safeTruncate('courses');
+    await safeTruncate('rooms');
+    await safeTruncate('faculty');
+    await safeTruncate('students');
     await query('DELETE FROM users WHERE role != "ADMIN"');
-    await query('TRUNCATE TABLE audit_logs');
+    await safeTruncate('audit_logs');
     await query('SET FOREIGN_KEY_CHECKS = 1');
     res.json({ success: true, message: 'All database records cleared successfully. System is now clean and ready for fresh file uploads.' });
   } catch (err) {
@@ -92,20 +100,28 @@ router.delete('/clear/:entityType', async (req, res) => {
   }
   try {
     const { query } = require('../config/db');
+    const safeTruncate = async (tbl) => {
+      try {
+        await query(`TRUNCATE TABLE \`${tbl}\``);
+      } catch (err) {
+        if (err.errno !== 1146) console.warn(`Truncate note for ${tbl}:`, err.message);
+      }
+    };
+
     await query('SET FOREIGN_KEY_CHECKS = 0');
     if (entityType === 'courses') {
-      await query('TRUNCATE TABLE courses');
-      await query('TRUNCATE TABLE student_courses');
-      await query('TRUNCATE TABLE course_section_instructors');
+      await safeTruncate('courses');
+      await safeTruncate('student_courses');
+      await safeTruncate('course_section_instructors');
     } else if (entityType === 'rooms') {
-      await query('TRUNCATE TABLE rooms');
-      await query('TRUNCATE TABLE room_constraints');
+      await safeTruncate('rooms');
+      await safeTruncate('room_constraints');
     } else if (entityType === 'faculty') {
-      await query('TRUNCATE TABLE faculty');
+      await safeTruncate('faculty');
       await query('DELETE FROM users WHERE role = "FACULTY"');
     } else if (entityType === 'students') {
-      await query('TRUNCATE TABLE students');
-      await query('TRUNCATE TABLE student_courses');
+      await safeTruncate('students');
+      await safeTruncate('student_courses');
       await query('DELETE FROM users WHERE role = "STUDENT"');
     }
     await query('SET FOREIGN_KEY_CHECKS = 1');

@@ -1,13 +1,15 @@
+const EMAILJS_CONFIG = require('../config/emailjsConfig');
+
 /**
  * EmailJS Dispatch Service for ExamSphere
  * Replaces SMTP/Nodemailer with EmailJS (https://www.emailjs.com)
  */
 class EmailService {
   constructor() {
-    this.serviceId = process.env.EMAILJS_SERVICE_ID || '';
-    this.templateId = process.env.EMAILJS_TEMPLATE_ID || '';
-    this.publicKey = process.env.EMAILJS_PUBLIC_KEY || '';
-    this.privateKey = process.env.EMAILJS_PRIVATE_KEY || '';
+    this.serviceId = process.env.EMAILJS_SERVICE_ID || EMAILJS_CONFIG.SERVICE_ID;
+    this.templateId = process.env.EMAILJS_TEMPLATE_ID || EMAILJS_CONFIG.TEMPLATE_ID;
+    this.publicKey = process.env.EMAILJS_PUBLIC_KEY || EMAILJS_CONFIG.PUBLIC_KEY;
+    this.privateKey = process.env.EMAILJS_PRIVATE_KEY || EMAILJS_CONFIG.PRIVATE_KEY;
   }
 
   isConfigured() {

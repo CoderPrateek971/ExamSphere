@@ -1,13 +1,7 @@
 import emailjs from '@emailjs/browser';
+import { EMAILJS_CONFIG } from '../config/emailjsConfig';
 
-// =====================================================================
-// PERMANENT EMAILJS CONFIGURATION (Hardcoded in code, hidden from UI)
-// =====================================================================
-export const EMAILJS_CONFIG = {
-  SERVICE_ID: 'service_xqz9a5f', // Connected to examsphereadmin@gmail.com
-  TEMPLATE_ID: 'template_3vubo2o',
-  PUBLIC_KEY: 'D3VVFUSreFR_UXg3o'
-};
+export { EMAILJS_CONFIG };
 
 export const emailService = {
   getConfig() {

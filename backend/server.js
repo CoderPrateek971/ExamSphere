@@ -81,4 +81,8 @@ app.listen(PORT, async () => {
 
   // Test MySQL connection on boot
   await testConnection();
+
+  // Ensure all schema columns and tables are synchronized
+  const { runMigration } = require('./database/migrate-schema');
+  await runMigration().catch((e) => console.warn('Schema sync note:', e.message));
 });
