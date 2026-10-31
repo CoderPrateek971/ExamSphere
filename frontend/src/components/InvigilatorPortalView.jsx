@@ -24,8 +24,10 @@ import {
   Camera,
   RotateCcw,
   X,
-  Upload
+  Upload,
+  HelpCircle
 } from 'lucide-react';
+import RaiseDoubtModal from './faculty/RaiseDoubtModal';
 
 export default function InvigilatorPortalView({ user }) {
   const [activeSubTab, setActiveSubTab] = useState('duties'); // 'duties', 'verification'
@@ -40,6 +42,8 @@ export default function InvigilatorPortalView({ user }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [toastMessage, setToastMessage] = useState(null);
+  const [isRaiseDoubtOpen, setIsRaiseDoubtOpen] = useState(false);
+  const [doubtStudent, setDoubtStudent] = useState(null);
 
   // Photo Capture Modal State (Real Webcam Snapshot)
   const [photoModalStudent, setPhotoModalStudent] = useState(null);
@@ -862,6 +866,27 @@ export default function InvigilatorPortalView({ user }) {
                   <Download size={13} />
                   <span>Export CSV</span>
                 </button>
+
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setDoubtStudent(null);
+                    setIsRaiseDoubtOpen(true);
+                  }}
+                  style={{
+                    fontSize: '0.78rem',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    color: '#fbbf24',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}
+                  title="Submit a student doubt from this classroom and alert the subject faculty via email"
+                >
+                  <HelpCircle size={14} />
+                  <span>Raise Student Doubt (Call Faculty)</span>
+                </button>
               </div>
 
               <button
@@ -1354,6 +1379,30 @@ export default function InvigilatorPortalView({ user }) {
                             >
                               Flag
                             </button>
+
+                            <button
+                              onClick={() => {
+                                setDoubtStudent({ id: st.student_id, enrollment_no: st.enrollment_no, name: st.student_name });
+                                setIsRaiseDoubtOpen(true);
+                              }}
+                              title="Raise student question doubt"
+                              style={{
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                color: '#fbbf24',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem'
+                              }}
+                            >
+                              <HelpCircle size={11} />
+                              <span>Doubt</span>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1602,6 +1651,22 @@ export default function InvigilatorPortalView({ user }) {
           </div>
         </div>
       )}
+
+      {/* Student Doubt Resolution Modal */}
+      <RaiseDoubtModal
+        isOpen={isRaiseDoubtOpen}
+        onClose={() => {
+          setIsRaiseDoubtOpen(false);
+          setDoubtStudent(null);
+        }}
+        onSuccess={() => {
+          showToast('Student doubt submitted and email alert dispatched to subject faculty!');
+        }}
+        currentExam={dutyDetails ? { id: dutyDetails.exam_id, exam_name: dutyDetails.exam_name, course_code: dutyDetails.course_code } : selectedDuty}
+        currentRoom={dutyDetails ? { id: dutyDetails.room_id, room_number: dutyDetails.room_number, building: dutyDetails.building } : selectedDuty}
+        invigilatorUser={user}
+        initialStudent={doubtStudent}
+      />
     </div>
   );
 }

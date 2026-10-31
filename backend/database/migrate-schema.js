@@ -63,6 +63,88 @@ async function runMigration() {
     )
   `);
 
+  // 7. Seed Demo Faculty Accounts
+  try {
+    const { hashPassword } = require('../utils/passwordHelper');
+    const facultyPasswordHash = await hashPassword('faculty123');
+    const demoAccounts = [
+      { email: 'faculty@examsphere.edu', name: 'Dr. Shilpa Mahajan', code: 'FAC-SM-01', dept: 'CSE', desig: 'Professor' },
+      { email: 'nishtha.gupta.24cse@bmu.edu.in', name: 'Prof. Nishtha Gupta', code: 'FAC-NG-01', dept: 'CSE', desig: 'Assistant Professor' },
+      { email: 'prateek.garg.24cse@bmu.edu.in', name: 'Prof. Prateek Garg', code: 'FAC-PG-02', dept: 'CSE', desig: 'Associate Professor' },
+      { email: 'riwan.bhati.24cse@bmu.edu.in', name: 'Prof. Riwan Bhati', code: 'FAC-RB-03', dept: 'CSE', desig: 'Assistant Professor' },
+      { email: 'nischay.mehta.24cse@bmu.edu.in', name: 'Prof. Nischay Mehta', code: 'FAC-NM-04', dept: 'CSE', desig: 'Assistant Professor' },
+      { email: 'invigilator@examsphere.edu', name: 'Demo Invigilator', code: 'INV001', dept: 'CSE', desig: 'Exam Invigilator' }
+    ];
+
+    for (const a of demoAccounts) {
+      await query(
+        `INSERT INTO users (name, email, password_hash, role)
+         VALUES (?, ?, ?, 'FACULTY')
+         ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)`,
+        [a.name, a.email, facultyPasswordHash]
+      );
+      const [uRows] = await query('SELECT id FROM users WHERE email = ?', [a.email]);
+      const uId = uRows[0]?.id;
+      if (uId) {
+        await query(
+          `INSERT INTO faculty (user_id, faculty_code, name, email, department, designation)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), faculty_code = VALUES(faculty_code)`,
+          [uId, a.code, a.name, a.email, a.dept, a.desig]
+        );
+      }
+    }
+    console.log('✅ Demo faculty accounts verified/seeded.');
+  } catch (seedErr) {
+    console.warn('Demo faculty seed notice:', seedErr.message);
+  }
+
+  // 8. Ensure all Courses are mapped to Department Faculty Instructors
+  try {
+    const [courses] = await query('SELECT id, course_code, department FROM courses WHERE course_coordinator_id IS NULL OR course_coordinator_name IS NULL');
+    if (courses.length > 0) {
+      const [cseFac] = await query('SELECT id, name, email FROM faculty WHERE department = "CSE" ORDER BY id ASC');
+      const [eceFac] = await query('SELECT id, name, email FROM faculty WHERE department = "ECE" ORDER BY id ASC');
+      const [meFac] = await query('SELECT id, name, email FROM faculty WHERE department = "ME" ORDER BY id ASC');
+      const [allFac] = await query('SELECT id, name, email FROM faculty ORDER BY id ASC');
+
+      const harshit = cseFac.find(f => f.name.includes('Harshit Malhotra')) || cseFac[0];
+
+      for (let i = 0; i < courses.length; i++) {
+        const c = courses[i];
+        let assigned = null;
+        if (['CSE2001', 'CSE3002', 'CSE3020'].includes(c.course_code)) {
+          assigned = harshit;
+        } else if (c.department === 'CSE' && cseFac.length > 0) {
+          assigned = cseFac[i % cseFac.length];
+        } else if (c.department === 'ECE' && eceFac.length > 0) {
+          assigned = eceFac[i % eceFac.length];
+        } else if (c.department === 'ME' && meFac.length > 0) {
+          assigned = meFac[i % meFac.length];
+        } else {
+          assigned = allFac[i % allFac.length];
+        }
+
+        if (assigned) {
+          await query('UPDATE courses SET course_coordinator_id = ?, course_coordinator_name = ? WHERE id = ?', [
+            assigned.id,
+            assigned.name,
+            c.id
+          ]);
+          await query('INSERT INTO course_section_instructors (course_id, section_name, instructor_name, instructor_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE instructor_name = VALUES(instructor_name)', [
+            c.id,
+            'Section A',
+            assigned.name,
+            assigned.id
+          ]);
+        }
+      }
+      console.log(`✅ Associated ${courses.length} courses to departmental faculty instructors.`);
+    }
+  } catch (mapErr) {
+    console.warn('Course instructor mapping note:', mapErr.message);
+  }
+
   console.log('✅ Database schema verified and synchronized successfully!');
 }
 

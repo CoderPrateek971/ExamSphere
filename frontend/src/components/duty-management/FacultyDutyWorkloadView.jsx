@@ -235,18 +235,18 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
     }));
   };
 
-  // Availability Checker form - Default: 20 Nov 2026, 09:30 AM to 12:30 PM
+  // Availability Checker form - Default: 2026-11-02, 09:30 AM to 12:30 PM
   const [availParams, setAvailParams] = useState({
-    exam_date: '2026-11-20',
+    exam_date: '2026-11-02',
     start_time: '09:30',
     end_time: '12:30'
   });
 
-  // Current System Reference Date - Default: 20 Nov 2026 (separates current/upcoming from past history)
-  const [currentDate, setCurrentDate] = useState('2026-11-20');
+  // Current System Reference Date - Default: 2026-11-02 (matches scheduled exams)
+  const [currentDate, setCurrentDate] = useState('2026-11-02');
 
-  // Roster View Mode: 'current_upcoming' (default) | 'history' | 'all'
-  const [rosterViewMode, setRosterViewMode] = useState('current_upcoming');
+  // Roster View Mode: 'all' (default so all duties are visible) | 'current_upcoming' | 'history'
+  const [rosterViewMode, setRosterViewMode] = useState('all');
 
   // Choice Modal: Asks whether user wants Manual Assign or Auto-Assign
   const [isAssignChoiceModalOpen, setIsAssignChoiceModalOpen] = useState(false);
@@ -257,7 +257,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
     faculty_id: '',
     exam_id: '',
     exam_name: '',
-    exam_date: '2026-11-20',
+    exam_date: '2026-11-02',
     start_time: '09:30',
     end_time: '12:30',
     room_id: ''
@@ -305,8 +305,17 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
           : [];
       setFacultyList(loadedFaculty);
 
-      setExams(Array.isArray(examsRes.data) ? examsRes.data : []);
+      const loadedExams = Array.isArray(examsRes.data) ? examsRes.data : [];
+      setExams(loadedExams);
       setRooms(Array.isArray(roomsRes.data) ? roomsRes.data : []);
+
+      if (loadedExams.length > 0) {
+        const firstExamDate = normalizeDate(loadedExams[0].exam_date);
+        if (firstExamDate) {
+          setCurrentDate(prev => (prev === '2026-11-20' ? firstExamDate : prev));
+          setAvailParams(prev => (prev.exam_date === '2026-11-20' ? { ...prev, exam_date: firstExamDate } : prev));
+        }
+      }
     } catch (err) {
       console.warn('Backend load note:', err.message);
     } finally {
@@ -388,9 +397,10 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
       completedTodayCount,    // Completed duties
       upcomingTodayCount,     // Upcoming duties
       allDutiesCount: allDuties.length,
-      assigned_duties: todayDutiesCount, // Daily assigned duties (0/4 on new day)
-      remaining_duties: Math.max(0, max - todayDutiesCount),
-      workload_pct: Math.min(100, Math.round((todayDutiesCount / max) * 100)),
+      assigned_duties: allDuties.length, // Total assigned duties across the examination schedule
+      today_assigned_duties: todayDutiesCount,
+      remaining_duties: Math.max(0, max - allDuties.length),
+      workload_pct: Math.min(100, Math.round((allDuties.length / max) * 100)),
       conflictingDuty,
       isFree
     };
@@ -619,12 +629,13 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
       .map(Number);
 
     try {
-      await api.autoAllocateDuties({ 
+      const res = await api.autoAllocateDuties({ 
         clearExisting: true,
         excludeFacultyIds: excludeIds
       });
       await loadData();
-      alert(`Duties automatically balanced and allocated! (${excludeIds.length} teachers on leave were skipped)`);
+      const count = res?.data?.allocatedCount ?? res?.allocatedCount ?? '';
+      alert(`Duties automatically balanced and allocated! Successfully assigned ${count} duties across faculty. (${excludeIds.length} teachers on leave were skipped)`);
     } catch (err) {
       console.warn('Auto-allocating locally:', err.message);
       const activeFaculty = facultyWithStats.filter(f => !f.isOnLeave);
@@ -634,9 +645,9 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
         return;
       }
 
-      const balancedDuties = exams.slice(0, 4).map((ex, idx) => {
+      const balancedDuties = exams.map((ex, idx) => {
         const assignedFaculty = activeFaculty[idx % activeFaculty.length];
-        const assignedRoom = rooms[idx % rooms.length];
+        const assignedRoom = rooms[idx % rooms.length] || { id: 1, room_number: 'Room-101', capacity: 40 };
         return {
           id: Date.now() + idx,
           faculty_id: assignedFaculty.id,
@@ -2109,7 +2120,7 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                   ) : (
                     facultyWithStats.map(f => (
                       <option key={f.id} value={f.id} disabled={f.isOnLeave}>
-                        {f.name} ({f.department}) {f.isOnLeave ? '[On Leave - Unavailable]' : `[Today's Duties: ${f.assigned_duties}/${f.max_duties}]`}
+                        {f.name} ({f.department}) {f.isOnLeave ? '[On Leave - Unavailable]' : `[Duties: ${f.assigned_duties}/${f.max_duties} | Today: ${f.today_assigned_duties}]`}
                       </option>
                     ))
                   )}

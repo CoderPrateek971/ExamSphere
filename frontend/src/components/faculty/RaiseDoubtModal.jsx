@@ -11,7 +11,8 @@ export default function RaiseDoubtModal({
   onSuccess,
   currentExam = null,
   currentRoom = null,
-  invigilatorUser = null
+  invigilatorUser = null,
+  initialStudent = null
 }) {
   const [exams, setExams] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -59,17 +60,18 @@ export default function RaiseDoubtModal({
         setStudents(studData);
 
         // Pre-select defaults
-        const defaultExamId = currentExam?.id || (examData[0] ? examData[0].id : '');
-        const defaultRoomId = currentRoom?.id || (roomData[0] ? roomData[0].id : '');
-        const defaultFacultyId = facData[0] ? facData[0].id : '';
-        const defaultStudent = studData[0] || null;
+        const defaultExamId = currentExam?.id || currentExam?.exam_id || (examData[0] ? examData[0].id : '');
+        const defaultRoomId = currentRoom?.id || currentRoom?.room_id || (roomData[0] ? roomData[0].id : '');
+        const selectedExam = examData.find(e => String(e.id) === String(defaultExamId));
+        const defaultFacultyId = selectedExam?.course_coordinator_id || (facData[0] ? facData[0].id : '');
+        const defaultStudent = initialStudent || studData[0] || null;
 
         setFormData({
           examId: defaultExamId,
           roomId: defaultRoomId,
-          studentId: defaultStudent ? defaultStudent.id : '',
-          studentRoll: defaultStudent ? defaultStudent.enrollment_no : '',
-          studentName: defaultStudent ? defaultStudent.name : '',
+          studentId: defaultStudent ? (defaultStudent.id || defaultStudent.student_id) : '',
+          studentRoll: defaultStudent ? (defaultStudent.enrollment_no || defaultStudent.student_roll) : '',
+          studentName: defaultStudent ? (defaultStudent.name || defaultStudent.student_name) : '',
           facultyId: defaultFacultyId,
           urgency: 'HIGH',
           questionText: ''
@@ -82,7 +84,7 @@ export default function RaiseDoubtModal({
     };
 
     loadPrerequisites();
-  }, [isOpen, currentExam, currentRoom]);
+  }, [isOpen, currentExam, currentRoom, initialStudent]);
 
   // When student selection changes
   const handleStudentSelect = (studentId) => {
@@ -92,6 +94,16 @@ export default function RaiseDoubtModal({
       studentId,
       studentRoll: st ? st.enrollment_no : prev.studentRoll,
       studentName: st ? st.name : prev.studentName
+    }));
+  };
+
+  // When exam selection changes, auto-route to designated course instructor
+  const handleExamChange = (newExamId) => {
+    const selected = exams.find(e => String(e.id) === String(newExamId));
+    setFormData(prev => ({
+      ...prev,
+      examId: newExamId,
+      facultyId: selected?.course_coordinator_id || prev.facultyId
     }));
   };
 
@@ -265,7 +277,7 @@ export default function RaiseDoubtModal({
               <select
                 className="input-field"
                 value={formData.examId}
-                onChange={(e) => setFormData(prev => ({ ...prev, examId: e.target.value }))}
+                onChange={(e) => handleExamChange(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
@@ -383,11 +395,15 @@ export default function RaiseDoubtModal({
                 fontSize: '0.85rem'
               }}
             >
-              {facultyList.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.name} — {f.email} ({f.department} - {f.designation || 'Faculty'})
-                </option>
-              ))}
+              {facultyList.map(f => {
+                const currentExamObj = exams.find(e => String(e.id) === String(formData.examId));
+                const isInstructor = currentExamObj && (Number(currentExamObj.course_coordinator_id) === Number(f.id));
+                return (
+                  <option key={f.id} value={f.id}>
+                    {f.name} — {f.email} ({f.department}) {isInstructor ? '⭐ (Designated Course Instructor)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
