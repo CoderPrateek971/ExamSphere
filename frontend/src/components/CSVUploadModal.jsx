@@ -12,16 +12,8 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
 
   if (!isOpen) return null;
 
-  const validExtensions = ['.csv', '.xlsx', '.xls'];
-
   const validateAndSetFile = (selected) => {
     if (!selected) return;
-    const ext = '.' + selected.name.split('.').pop().toLowerCase();
-    if (!validExtensions.includes(ext)) {
-      setError('Only Excel (.xlsx, .xls) and CSV (.csv) files are supported.');
-      setFile(null);
-      return;
-    }
     setError(null);
     setFile(selected);
     setResult(null);
@@ -60,9 +52,16 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
 
   const handleUpload = async () => {
     if (!file) {
-      setError('Please select a CSV or Excel file to upload.');
+      setError('Please select a CSV file to upload.');
       return;
     }
+
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (ext !== '.csv') {
+      setError('Only CSV files are allowed');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -75,8 +74,8 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
       setResult(res.summary);
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
-      console.error('Spreadsheet upload error:', err);
-      setError(err.message || 'Spreadsheet ingestion failed. Please verify column headers and data format.');
+      console.error('CSV upload error:', err);
+      setError(err.message || 'Failed to upload CSV file.');
     } finally {
       setLoading(false);
     }
@@ -89,9 +88,9 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
       <div className="modal-content" style={{ maxWidth: '520px' }}>
         <div className="modal-header">
           <div>
-            <h3>Bulk Spreadsheet Ingestion</h3>
+            <h3>Bulk CSV Ingestion</h3>
             <p style={{ fontSize: '0.82rem', color: '#9ca3af' }}>
-              Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong> in Excel (.xlsx) or CSV (.csv)
+              Upload master records for <strong style={{ color: '#818cf8', textTransform: 'capitalize' }}>{entityType}</strong> (.csv)
             </p>
             <div style={{ marginTop: '0.4rem', fontSize: '0.73rem', color: '#94a3b8', background: 'rgba(255, 255, 255, 0.04)', padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
               <span>Required schema: </span>
@@ -176,12 +175,12 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
                 {file ? file.name : 'Click to select or drag & drop file'}
               </div>
               <div style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.35rem' }}>
-                {file ? `${(file.size / 1024).toFixed(1)} KB — Ready to upload` : 'Supports CSV (.csv) and Excel (.xlsx, .xls) spreadsheets'}
+                {file ? `${(file.size / 1024).toFixed(1)} KB — Ready to upload` : 'Supports CSV (.csv) files'}
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                accept=".csv,.pdf,.png,application/pdf,image/png,text/csv"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
@@ -221,7 +220,7 @@ export default function CSVUploadModal({ isOpen, onClose, entityType, onUploadSu
                   cursor: (!file || loading) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? 'Processing Spreadsheet...' : `Ingest ${entityType.toUpperCase()}`}
+                {loading ? 'Processing CSV...' : `Ingest ${entityType.toUpperCase()}`}
               </button>
             </div>
           </>

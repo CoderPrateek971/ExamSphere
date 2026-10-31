@@ -249,6 +249,33 @@ export default function FacultyPortalView({ user }) {
       {/* Assigned Invigilation Duties */}
       {activeTab === 'duties' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Action Banner for Unconfirmed Duties */}
+          {duties.some(d => d.duty_status !== 'CONFIRMED') && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              borderRadius: '12px',
+              padding: '1rem 1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Clock size={22} color="#fbbf24" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontWeight: 800, color: '#fef3c7', fontSize: '0.9rem' }}>
+                    Action Required: You have {duties.filter(d => d.duty_status !== 'CONFIRMED').length} unconfirmed invigilation duty assignment(s)
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#fcd34d', marginTop: '0.15rem' }}>
+                    Please review your scheduled room and timings below, then click &ldquo;Confirm Duty&rdquo; so the Admin Portal reflects your availability.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Duties Controls */}
           <div style={{
             background: 'var(--bg-card, #0f172a)',
@@ -377,13 +404,26 @@ export default function FacultyPortalView({ user }) {
                           <span style={{
                             fontSize: '0.72rem',
                             fontWeight: 800,
-                            padding: '0.2rem 0.55rem',
+                            padding: '0.25rem 0.6rem',
                             borderRadius: '6px',
-                            background: isConfirmed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                            color: isConfirmed ? '#34d399' : '#38bdf8',
-                            border: `1px solid ${isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(56, 189, 248, 0.4)'}`
+                            background: isConfirmed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                            color: isConfirmed ? '#34d399' : '#fbbf24',
+                            border: `1px solid ${isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
                           }}>
-                            {duty.duty_status}
+                            {isConfirmed ? (
+                              <>
+                                <CheckCircle2 size={13} />
+                                <span>CONFIRMED</span>
+                              </>
+                            ) : (
+                              <>
+                                <Clock size={13} />
+                                <span>ASSIGNED (Awaiting Your Confirmation)</span>
+                              </>
+                            )}
                           </span>
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'right' }}>

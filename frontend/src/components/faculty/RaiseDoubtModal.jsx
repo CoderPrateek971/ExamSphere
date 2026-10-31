@@ -59,9 +59,40 @@ export default function RaiseDoubtModal({
         ]);
 
         const examData = eRes.data || [];
-        const roomData = rRes.data || [];
+        let roomData = rRes.data || [];
         const facData = fRes.data || [];
-        const studData = sRes.data || [];
+        let studData = sRes.data || [];
+
+        // If currentRoom is passed, make sure it is in roomData
+        if (currentRoom && (currentRoom.id || currentRoom.room_id)) {
+          const cId = currentRoom.id || currentRoom.room_id;
+          if (!roomData.some(r => String(r.id) === String(cId))) {
+            roomData = [{
+              id: cId,
+              room_number: currentRoom.room_number || 'Exam Hall',
+              building: currentRoom.building || 'Campus'
+            }, ...roomData];
+          }
+        }
+
+        // Merge roomStudents if provided (prioritized at top)
+        const combinedStudents = [];
+        if (roomStudents && roomStudents.length > 0) {
+          roomStudents.forEach(st => {
+            combinedStudents.push({
+              id: st.student_id || st.id,
+              name: st.student_name || st.name,
+              enrollment_no: st.enrollment_no || st.student_roll || '',
+              department: st.student_department || st.department || '',
+              seat_number: st.seat_number || ''
+            });
+          });
+        }
+        studData.forEach(st => {
+          if (!combinedStudents.some(s => String(s.id) === String(st.id))) {
+            combinedStudents.push(st);
+          }
+        });
 
         // Ensure currentRoom is in rooms list
         let finalRooms = [...roomData];
@@ -163,12 +194,21 @@ export default function RaiseDoubtModal({
 
   // When student selection changes
   const handleStudentSelect = (studentId) => {
+    if (!studentId || studentId === 'GENERAL') {
+      setFormData(prev => ({
+        ...prev,
+        studentId: 'GENERAL',
+        studentRoll: 'GENERAL',
+        studentName: 'General Room Question'
+      }));
+      return;
+    }
     const st = students.find(s => String(s.id) === String(studentId));
     setFormData(prev => ({
       ...prev,
-      studentId,
-      studentRoll: st ? st.enrollment_no : prev.studentRoll,
-      studentName: st ? st.name : prev.studentName
+      studentId: String(studentId),
+      studentRoll: st ? (st.enrollment_no || '') : '',
+      studentName: st ? (st.name || '') : ''
     }));
   };
 
@@ -249,12 +289,14 @@ export default function RaiseDoubtModal({
         console.warn('Browser EmailJS dispatch warning:', ejsErr);
       }
 
-      // 2. Submit to backend API to log in database and trigger live doubts stream
+      // 2. Submit to backend API to log in database and trigger live doubts stream & backend email
+      const isGeneral = !formData.studentId || formData.studentId === 'GENERAL';
       const payload = {
         examId: Number(formData.examId),
         roomId: Number(formData.roomId),
-        studentId: formData.studentId ? Number(formData.studentId) : null,
-        studentRoll: formData.studentRoll ? formData.studentRoll.trim() : null,
+        studentId: isGeneral ? null : Number(formData.studentId),
+        studentName: isGeneral ? 'General Room Question' : (formData.studentName || 'Student Candidate'),
+        studentRoll: isGeneral ? 'GENERAL' : (formData.studentRoll || 'GENERAL'),
         facultyId: Number(formData.facultyId) || null,
         recipientEmail: targetEmail,
         questionText: formData.questionText.trim(),
@@ -411,6 +453,7 @@ export default function RaiseDoubtModal({
                 className="input-field"
                 value={formData.examId}
                 onChange={(e) => handleExamChange(e.target.value)}
+                required
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
@@ -421,6 +464,7 @@ export default function RaiseDoubtModal({
                   fontSize: '0.85rem'
                 }}
               >
+                <option value="">-- Select Active Examination --</option>
                 {exams.map(e => (
                   <option key={e.id} value={e.id}>
                     {e.exam_name} ({e.course_code || 'Exam'})
@@ -437,6 +481,7 @@ export default function RaiseDoubtModal({
                 className="input-field"
                 value={formData.roomId}
                 onChange={(e) => setFormData(prev => ({ ...prev, roomId: e.target.value }))}
+                required
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
@@ -447,6 +492,7 @@ export default function RaiseDoubtModal({
                   fontSize: '0.85rem'
                 }}
               >
+                <option value="">-- Select Examination Hall / Room --</option>
                 {rooms.map(r => (
                   <option key={r.id} value={r.id}>
                     Room {r.room_number} ({r.building || 'Campus'})
@@ -459,9 +505,14 @@ export default function RaiseDoubtModal({
           {/* Row 2: Student & Urgency */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                Student Raising Doubt *
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>
+                  Candidate / Doubt Scope (Optional)
+                </label>
+                <span style={{ fontSize: '0.7rem', color: formData.studentId === 'GENERAL' ? '#38bdf8' : '#fbbf24', fontWeight: 600 }}>
+                  {formData.studentId === 'GENERAL' ? 'Whole Classroom' : 'Student-Specific'}
+                </span>
+              </div>
               <select
                 className="input-field"
                 value={formData.studentId}
@@ -518,6 +569,7 @@ export default function RaiseDoubtModal({
               className="input-field"
               value={formData.facultyId}
               onChange={(e) => handleFacultySelect(e.target.value)}
+              required
               style={{
                 width: '100%',
                 padding: '0.65rem 0.85rem',

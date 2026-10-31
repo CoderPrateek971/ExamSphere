@@ -54,11 +54,23 @@ router.post('/rooms', createRoom);
 router.put('/rooms/:id', updateRoom);
 router.delete('/rooms/:id', deleteRoom);
 
-// Bulk CSV Upload for any entity ('students', 'faculty', 'courses', 'rooms')
-router.post('/upload-csv/:entityType', uploadCSV.single('file'), uploadMasterCSV);
+// Rooms mutating endpoints: strictly ADMIN
+router.post('/rooms', requireRole('ADMIN'), createRoom);
+router.put('/rooms/:id', requireRole('ADMIN'), updateRoom);
+router.delete('/rooms/:id', requireRole('ADMIN'), deleteRoom);
 
-// Reset / Wipe all records from database (clean slate for new file uploads)
-router.post('/reset-database', async (req, res) => {
+// Bulk CSV Upload for any entity ('students', 'faculty', 'courses', 'rooms') - strictly ADMIN
+router.post('/upload-csv/:entityType', requireRole('ADMIN'), (req, res, next) => {
+  uploadCSV.single('file')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+    }
+    next();
+  });
+}, uploadMasterCSV);
+
+// Reset / Wipe all records from database - strictly ADMIN
+router.post('/reset-database', requireRole('ADMIN'), async (req, res) => {
   const { pool } = require('../config/db');
   if (!pool) return res.status(500).json({ success: false, message: 'Database not connected' });
   const conn = await pool.getConnection();
@@ -102,8 +114,8 @@ router.post('/reset-database', async (req, res) => {
   }
 });
 
-// Delete all records of a specific entity type ('courses', 'rooms', 'faculty', 'students') directly
-router.delete('/clear/:entityType', async (req, res) => {
+// Delete all records of a specific entity type ('courses', 'rooms', 'faculty', 'students') directly - strictly ADMIN
+router.delete('/clear/:entityType', requireRole('ADMIN'), async (req, res) => {
   const { entityType } = req.params;
   const validTypes = ['students', 'faculty', 'courses', 'rooms'];
   if (!validTypes.includes(entityType)) {

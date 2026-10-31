@@ -64,13 +64,25 @@ class AuthService {
    * Authenticate credentials and generate JWT token
    */
   async loginUser({ email, password }) {
-    if (!email || !password) {
-      const err = new Error('Email and password are required.');
+    const trimmedEmail = email ? String(email).trim() : '';
+    const trimmedPass = password ? String(password).trim() : '';
+    if (!trimmedEmail && !trimmedPass) {
+      const err = new Error('Email and password are required');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!trimmedEmail) {
+      const err = new Error('Email is required');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!trimmedPass) {
+      const err = new Error('Password is required');
       err.statusCode = 400;
       throw err;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = trimmedEmail.toLowerCase();
     let [users] = await query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
 
     // If user record doesn't exist, check if this is an established faculty from uploaded master data

@@ -19,10 +19,26 @@ export default function PortalLoginView({ onLoginSuccess }) {
 
   const handleLogin = async (event) => {
     event.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail && !trimmedPassword) {
+      setError('Email and password are required');
+      return;
+    }
+    if (!trimmedEmail) {
+      setError('Email is required');
+      return;
+    }
+    if (!trimmedPassword) {
+      setError('Password is required');
+      return;
+    }
+
     setError('');
     setLoading(true);
     try {
-      const res = await api.login(email, password);
+      const res = await api.login(trimmedEmail, password);
       api.setToken(res.data.token);
       api.setUser(res.data.user);
       onLoginSuccess(res.data.user);
@@ -56,13 +72,12 @@ export default function PortalLoginView({ onLoginSuccess }) {
           </button>
         </div>
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} noValidate>
           <label className="login-field">
             Email address
             <input
               type="email"
               autoComplete="username"
-              required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -79,7 +94,6 @@ export default function PortalLoginView({ onLoginSuccess }) {
             <input
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
-              required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />

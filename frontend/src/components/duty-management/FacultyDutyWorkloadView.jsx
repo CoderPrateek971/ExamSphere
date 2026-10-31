@@ -944,6 +944,19 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
             {totalOnLeave > 0 ? `${totalOnLeave} on leave (skipped)` : '0 on leave'}
           </span>
         </div>
+
+        <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <CheckCircle2 size={13} color="#10b981" /> Faculty Confirmation
+          </span>
+          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#34d399', marginTop: '0.2rem', display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+            <span>{confirmedDutiesCount}</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {roster.length} confirmed</span>
+          </div>
+          <span style={{ fontSize: '0.72rem', color: awaitingDutiesCount > 0 ? '#fbbf24' : '#34d399', fontWeight: 600 }}>
+            {awaitingDutiesCount > 0 ? `⏳ ${awaitingDutiesCount} awaiting teacher confirmation` : '✓ All duties confirmed'}
+          </span>
+        </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
@@ -1190,21 +1203,34 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                 </tr>
               </thead>
               <tbody>
-                {displayedRoster.length === 0 ? (
+                {filteredByConfirmation.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
                       <AlertCircle size={32} style={{ margin: '0 auto 0.75rem', color: '#6366f1', opacity: 0.8 }} />
                       <div style={{ fontWeight: 700, color: '#f3f4f6', fontSize: '1.05rem', marginBottom: '0.4rem' }}>
-                        {rosterViewMode === 'history' 
-                          ? 'No Past Duty Records Found' 
-                          : 'No Current or Upcoming Exam Duties'}
+                        {rosterConfirmationFilter === 'confirmed'
+                          ? 'No Confirmed Duties Found'
+                          : rosterConfirmationFilter === 'awaiting'
+                            ? 'No Unconfirmed Duties Awaiting Confirmation'
+                            : rosterViewMode === 'history' 
+                              ? 'No Past Duty Records Found' 
+                              : 'No Current or Upcoming Exam Duties'}
                       </div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto 1.25rem' }}>
-                        {rosterViewMode === 'history'
-                          ? `There are no previous exam duties before ${formatDateReadable(currentDate)}. Previous dates will automatically appear here once their exam date has passed.`
-                          : `There are no duties scheduled on or after ${formatDateReadable(currentDate)}. Use Assign Duties above to assign teachers manually or automatically.`}
+                        {rosterConfirmationFilter !== 'all'
+                          ? `There are currently no duties matching "${rosterConfirmationFilter === 'confirmed' ? 'Confirmed by Faculty' : 'Awaiting Faculty Confirmation'}".`
+                          : rosterViewMode === 'history'
+                            ? `There are no previous exam duties before ${formatDateReadable(currentDate)}. Previous dates will automatically appear here once their exam date has passed.`
+                            : `There are no duties scheduled on or after ${formatDateReadable(currentDate)}. Use Assign Duties above to assign teachers manually or automatically.`}
                       </p>
-                      {rosterViewMode === 'history' && (
+                      {rosterConfirmationFilter !== 'all' ? (
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => setRosterConfirmationFilter('all')}
+                        >
+                          <span>Show All Confirmation Statuses</span>
+                        </button>
+                      ) : rosterViewMode === 'history' && (
                         <button
                           className="btn btn-primary"
                           onClick={() => setRosterViewMode('current_upcoming')}
@@ -1215,8 +1241,9 @@ export default function FacultyDutyWorkloadView({ user, onNavigateToStep }) {
                     </td>
                   </tr>
                 ) : (
-                  displayedRoster.map((duty) => {
+                  filteredByConfirmation.map((duty) => {
                     const isSubstituted = duty.status === 'SUBSTITUTED';
+                    const isConfirmed = duty.status === 'CONFIRMED' || duty.duty_status === 'CONFIRMED';
                     const dateStr = formatDateReadable(duty.exam_date);
                     const dutyDate = normalizeDate(duty.exam_date);
                     const isToday = dutyDate === systemDate;

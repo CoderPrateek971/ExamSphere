@@ -1,4 +1,3 @@
-
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -26,30 +25,17 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for Excel (.xlsx, .xls) and CSV (.csv) files
+// File filter for CSV (.csv) files
 const spreadsheetFileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
 
-  const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+  const allowedExtensions = ['.csv'];
 
-  const allowedMimeTypes = [
-    'text/csv',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/octet-stream',
-    'application/wps-office.xlsx'
-  ];
-
-  if (
-    allowedExtensions.includes(ext) ||
-    allowedMimeTypes.includes(file.mimetype)
-  ) {
+  if (allowedExtensions.includes(ext)) {
     cb(null, true);
   } else {
     cb(
-      new Error(
-        'Invalid file format. Only Excel spreadsheets (.xlsx, .xls) and CSV files (.csv) are supported.'
-      ),
+      new Error('Only CSV files are allowed'),
       false
     );
   }

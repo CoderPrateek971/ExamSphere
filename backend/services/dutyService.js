@@ -37,6 +37,7 @@ class DutyService {
         id.room_id,
         id.faculty_id,
         id.status,
+        id.status AS duty_status,
         id.substitute_faculty_id,
         id.created_at,
         e.exam_name,

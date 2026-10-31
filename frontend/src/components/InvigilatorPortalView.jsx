@@ -721,6 +721,51 @@ export default function InvigilatorPortalView({ user }) {
       {/* ========================================================= */}
       {activeSubTab === 'verification' && (
         <div style={{ animation: 'fadeIn 0.2s ease-in-out' }}>
+          {/* Duty Confirmation Alert if not yet confirmed */}
+          {((dutyDetails?.status || selectedDuty?.status) !== 'CONFIRMED') && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.15))',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              borderRadius: '12px',
+              padding: '0.9rem 1.25rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.85rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <AlertTriangle size={22} color="#fbbf24" style={{ flexShrink: 0 }} />
+                <div>
+                  <strong style={{ color: '#fbbf24', fontSize: '0.9rem' }}>
+                    Invigilation Duty Confirmation Required
+                  </strong>
+                  <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: '#fde68a' }}>
+                    Please accept and confirm your invigilation assignment for Room {dutyDetails?.room_number || selectedDuty?.room_number} to officially report for duty.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleConfirmDuty(selectedDutyId || dutyDetails?.id)}
+                disabled={actionLoading}
+                style={{
+                  background: 'var(--accent-emerald)',
+                  borderColor: 'var(--accent-emerald)',
+                  fontSize: '0.82rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 1rem'
+                }}
+              >
+                <Check size={15} />
+                <span>{actionLoading ? 'Confirming...' : 'Accept & Confirm Duty'}</span>
+              </button>
+            </div>
+          )}
+
           {/* Active Session & Batch Attendance Header Card */}
           <div
             className="card"
