@@ -194,7 +194,8 @@ async function runFacultyPortalTests() {
   // -----------------------------------------------------------------
   total++;
   try {
-    const testEmail = 'nishtha.gupta.24cse@bmu.edu.in';
+    const [activeFac] = await query('SELECT f.email FROM faculty f JOIN invigilation_duties id ON f.id = id.faculty_id LIMIT 1');
+    const testEmail = activeFac[0]?.email || 'aarav.arora48@example.com';
     const emailDuties = await facultyPortalService.getFacultyDuties({ email: testEmail });
     assert(Array.isArray(emailDuties), 'Duties for email must return an array');
     assert(emailDuties.length > 0, `Must find duties for sample test email ${testEmail}`);

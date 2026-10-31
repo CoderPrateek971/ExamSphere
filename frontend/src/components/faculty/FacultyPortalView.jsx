@@ -12,7 +12,7 @@ import EmailNotificationModal from './EmailNotificationModal';
 import RaiseDoubtModal from './RaiseDoubtModal';
 
 export default function FacultyPortalView({ user }) {
-  // Navigation tabs: 'duties' | 'doubts' | 'schedule' | 'emails'
+  // Navigation tabs: 'duties' | 'doubts' | 'emails'
   // Default to 'duties' so teacher immediately sees their assigned invigilation duties
   const [activeTab, setActiveTab] = useState('duties');
 
@@ -30,7 +30,6 @@ export default function FacultyPortalView({ user }) {
 
   const [doubts, setDoubts] = useState([]);
   const [duties, setDuties] = useState([]);
-  const [schedules, setSchedules] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -38,8 +37,6 @@ export default function FacultyPortalView({ user }) {
   const [doubtStatusFilter, setDoubtStatusFilter] = useState('ALL');
   const [doubtSearch, setDoubtSearch] = useState('');
   const [dutyStatusFilter, setDutyStatusFilter] = useState('ALL');
-  const [scheduleDeptFilter, setScheduleDeptFilter] = useState('ALL');
-  const [scheduleSearch, setScheduleSearch] = useState('');
 
   // Modals
   const [selectedDutyForDoubt, setSelectedDutyForDoubt] = useState(null);
@@ -59,18 +56,16 @@ export default function FacultyPortalView({ user }) {
     try {
       const currentEmail = user?.email || null;
 
-      const [metricsRes, doubtsRes, dutiesRes, schedRes, notifsRes] = await Promise.all([
+      const [metricsRes, doubtsRes, dutiesRes, notifsRes] = await Promise.all([
         api.getFacultyMetrics({ email: currentEmail }).catch(() => ({ data: {} })),
         api.getDoubtRequests({ email: currentEmail }).catch(() => ({ data: [] })),
         api.getFacultyDuties({ email: currentEmail }).catch(() => ({ data: [] })),
-        api.getFacultySchedule({ email: currentEmail }).catch(() => ({ data: [] })),
         api.getFacultyNotifications({ email: currentEmail }).catch(() => ({ data: [] }))
       ]);
 
       if (metricsRes?.data) setMetrics(metricsRes.data);
       if (doubtsRes?.data) setDoubts(doubtsRes.data);
       if (dutiesRes?.data) setDuties(dutiesRes.data);
-      if (schedRes?.data) setSchedules(schedRes.data);
       if (notifsRes?.data) setNotifications(notifsRes.data);
     } catch (err) {
       console.warn('Faculty portal load notice:', err.message);
@@ -117,19 +112,6 @@ export default function FacultyPortalView({ user }) {
   // Filtered Duties for this faculty
   const filteredDuties = duties.filter(d => {
     if (dutyStatusFilter !== 'ALL' && d.duty_status !== dutyStatusFilter) return false;
-    return true;
-  });
-
-  // Filtered Schedule
-  const departments = Array.from(new Set(schedules.map(s => s.course_department))).filter(Boolean);
-  const filteredSchedules = schedules.filter(s => {
-    if (scheduleDeptFilter !== 'ALL' && s.course_department !== scheduleDeptFilter) return false;
-    if (scheduleSearch.trim()) {
-      const q = scheduleSearch.toLowerCase();
-      const matchName = (s.exam_name || '').toLowerCase().includes(q);
-      const matchCode = (s.course_code || '').toLowerCase().includes(q);
-      if (!matchName && !matchCode) return false;
-    }
     return true;
   });
 
@@ -228,9 +210,9 @@ export default function FacultyPortalView({ user }) {
         </div>
       </div>
 
-      {/* 4 Summary Metrics Cards for Logged-In Faculty */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-        {/* Card 1: My Assigned Duties */}
+      {/* Summary Metric: Assigned Duties for Logged-In Faculty */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        {/* Card: My Assigned Duties */}
         <div style={{
           background: 'rgba(255, 255, 255, 0.02)',
           border: '1px solid var(--border-subtle)',
@@ -262,143 +244,9 @@ export default function FacultyPortalView({ user }) {
             <Users size={22} color="#06b6d4" />
           </div>
         </div>
-
-        {/* Card 2: Scheduled Exams */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '12px',
-          padding: '1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-              Departmental Examinations
-            </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#f8fafc', margin: '0.2rem 0' }}>
-              {schedules.length || metrics.totalExams || 0}
-              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#38bdf8', marginLeft: '0.4rem' }}>
-                Sessions
-              </span>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Active examination timetable
-            </div>
-          </div>
-          <div style={{
-            width: '44px', height: '44px', borderRadius: '10px',
-            background: 'rgba(59, 130, 246, 0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Calendar size={22} color="#3b82f6" />
-          </div>
-        </div>
-
-        {/* Card 3: Live Student Doubts */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '12px',
-          padding: '1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-              Live Student Doubts
-            </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#f8fafc', margin: '0.2rem 0' }}>
-              {doubts.filter(d => d.status === 'PENDING').length}
-              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#f59e0b', marginLeft: '0.4rem' }}>
-                Pending Action
-              </span>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              {doubts.filter(d => d.status === 'RESOLVED').length} resolved &bull; {doubts.filter(d => d.status === 'VISITED').length} visited
-            </div>
-          </div>
-          <div style={{
-            width: '44px', height: '44px', borderRadius: '10px',
-            background: 'rgba(245, 158, 11, 0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <HelpCircle size={22} color="#f59e0b" />
-          </div>
-        </div>
-
-        {/* Card 4: Email Alerts Dispatched */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '12px',
-          padding: '1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-              Email Notifications
-            </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#f8fafc', margin: '0.2rem 0' }}>
-              {notifications.length || metrics.emailsDispatched || 0}
-              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#10b981', marginLeft: '0.4rem' }}>
-                Delivered
-              </span>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Automated SMTP duty and doubt dispatches
-            </div>
-          </div>
-          <div style={{
-            width: '44px', height: '44px', borderRadius: '10px',
-            background: 'rgba(16, 185, 129, 0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Mail size={22} color="#10b981" />
-          </div>
-        </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="nav-tabs" style={{ marginBottom: '0.5rem' }}>
-        <button
-          className={`tab-btn ${activeTab === 'duties' ? 'active' : ''}`}
-          onClick={() => setActiveTab('duties')}
-        >
-          <Users size={16} />
-          <span>My Assigned Duties ({filteredDuties.length})</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'doubts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('doubts')}
-        >
-          <HelpCircle size={16} />
-          <span>Live Doubts Stream ({filteredDoubts.length})</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'schedule' ? 'active' : ''}`}
-          onClick={() => setActiveTab('schedule')}
-        >
-          <Calendar size={16} />
-          <span>Exam Schedule ({filteredSchedules.length})</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'emails' ? 'active' : ''}`}
-          onClick={() => setActiveTab('emails')}
-        >
-          <Mail size={16} />
-          <span>Email Logs ({notifications.length})</span>
-        </button>
-      </div>
-
-      {/* TAB 1: Assigned Invigilation Duties (Default) */}
+      {/* Assigned Invigilation Duties */}
       {activeTab === 'duties' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Duties Controls */}
@@ -846,112 +694,7 @@ export default function FacultyPortalView({ user }) {
         </div>
       )}
 
-      {/* TAB 3: Examination Schedule */}
-      {activeTab === 'schedule' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{
-            background: 'var(--bg-card, #0f172a)',
-            border: '1px solid var(--border-color, #1e293b)',
-            borderRadius: '12px',
-            padding: '1rem 1.25rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '240px' }}>
-              <Search size={16} color="var(--text-muted)" />
-              <input
-                type="text"
-                placeholder="Search examination name or course code..."
-                value={scheduleSearch}
-                onChange={(e) => setScheduleSearch(e.target.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#fff',
-                  width: '100%',
-                  fontSize: '0.85rem',
-                  outline: 'none'
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Department:</span>
-              <select
-                value={scheduleDeptFilter}
-                onChange={(e) => setScheduleDeptFilter(e.target.value)}
-                style={{
-                  background: 'var(--bg-input, #1e293b)',
-                  border: '1px solid var(--border-color, #334155)',
-                  color: '#fff',
-                  padding: '0.35rem 0.65rem',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem'
-                }}
-              >
-                <option value="ALL">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
-            {filteredSchedules.map((exam) => (
-              <div
-                key={exam.exam_id}
-                style={{
-                  background: 'var(--bg-card, #0f172a)',
-                  border: '1px solid var(--border-color, #1e293b)',
-                  borderRadius: '12px',
-                  padding: '1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#f8fafc', fontWeight: 700 }}>{exam.exam_name}</h4>
-                    <span style={{ fontSize: '0.75rem', color: '#38bdf8' }}>{exam.course_code} - {exam.course_name}</span>
-                  </div>
-                  <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 800,
-                    padding: '0.15rem 0.45rem',
-                    borderRadius: '4px',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    color: '#38bdf8'
-                  }}>
-                    {exam.course_department} &bull; Sem {exam.course_semester}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Calendar size={14} color="#94a3b8" />
-                    <span>{exam.exam_date}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Clock size={14} color="#94a3b8" />
-                    <span>{exam.start_time?.slice(0, 5)} - {exam.end_time?.slice(0, 5)} ({exam.duration_minutes} min)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Building size={14} color="#94a3b8" />
-                    <span>Rooms: {exam.allocated_rooms_list || 'E2-101, E2-102'}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: Email Notification Logs */}
+      {/* TAB 3: Email Notification Logs */}
       {activeTab === 'emails' && (
         <div style={{
           background: 'var(--bg-card, #0f172a)',

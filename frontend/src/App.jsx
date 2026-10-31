@@ -41,7 +41,13 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Check saved user session
+    // Purge any stale permanent localStorage sessions so opening website requires fresh sign-in
+    try {
+      localStorage.removeItem('examsphere_token');
+      localStorage.removeItem('examsphere_user');
+    } catch {}
+
+    // Check active tab session in sessionStorage
     const savedUser = api.getUser();
     const savedToken = api.getToken();
     if (savedUser && savedToken && savedToken !== 'demo-jwt-token-active') {
@@ -49,9 +55,9 @@ export default function App() {
       if (savedUser.role === 'ADMIN') {
         loadStats();
       }
-    } else if (savedToken === 'demo-jwt-token-active') {
-      // Remove the old development-only auto-login session so the sign-in page appears.
+    } else {
       api.removeToken();
+      setUser(null);
     }
   }, []);
 

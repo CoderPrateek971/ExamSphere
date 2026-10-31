@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Send, X, AlertCircle, CheckCircle2, Settings, ExternalLink, Sparkles, User, Info, ChevronDown, ChevronUp, Key } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import { EMAILJS_CONFIG } from '../../config/emailjsConfig';
+import { emailService } from '../../services/emailService';
 import { api } from '../../api';
 
 export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
@@ -19,25 +20,15 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
   const [error, setError] = useState(null);
   const [deliveryResult, setDeliveryResult] = useState(null);
 
-  // EmailJS Configuration (Stored in localStorage and falls back to shared emailjsConfig.js)
-  const [emailJsConfig, setEmailJsConfig] = useState(() => {
-    try {
-      const saved = localStorage.getItem('examsphere_emailjs');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      serviceId: EMAILJS_CONFIG.SERVICE_ID,
-      templateId: EMAILJS_CONFIG.TEMPLATE_ID,
-      publicKey: EMAILJS_CONFIG.PUBLIC_KEY
-    };
-  });
+  // 3-Channel EmailJS Configuration (Stored in localStorage and falls back to shared emailjsConfig.js)
+  const [emailJsConfig, setEmailJsConfig] = useState(() => emailService.getAllConfig());
   const [showConfig, setShowConfig] = useState(false);
   const [configSavedNotice, setConfigSavedNotice] = useState(false);
 
   const isEmailJsReady = Boolean(
-    emailJsConfig.serviceId?.trim() && 
-    emailJsConfig.templateId?.trim() && 
-    emailJsConfig.publicKey?.trim()
+    emailJsConfig.publicKey?.trim() &&
+    emailJsConfig.faculty?.serviceId?.trim() && 
+    emailJsConfig.faculty?.templateId?.trim()
   );
 
   // Clear form selections and fetch real records every time modal opens
@@ -77,7 +68,7 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
 
   const handleSaveEmailJsKeys = (e) => {
     e.preventDefault();
-    localStorage.setItem('examsphere_emailjs', JSON.stringify(emailJsConfig));
+    emailService.saveAllConfig(emailJsConfig);
     setConfigSavedNotice(true);
     setTimeout(() => setConfigSavedNotice(false), 3000);
   };
@@ -100,32 +91,38 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
       let emailJsDispatched = false;
       let emailJsError = null;
 
-      // 1. Dispatch directly via EmailJS if credentials are configured
-      if (isEmailJsReady) {
+      // 1. Dispatch directly via EmailJS using dedicated FACULTY service & template
+      const facConfig = emailService.getConfig('FACULTY');
+      if (facConfig.serviceId && facConfig.templateId && facConfig.publicKey) {
         try {
           const templateParams = {
             // Direct matches to EmailJS Template variables ({{title}}, {{name}}, {{time}}, {{message}}, {{to_email}}, {{from_name}}, {{from_email}})
             title: emailSubject,
+            subject: emailSubject,
             name: recipientEmail.split('@')[0],
             time: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+            date: new Date().toLocaleDateString('en-US'),
             message: emailBody,
             to_email: recipientEmail.trim(),
             recipient_email: recipientEmail.trim(),
+            email: recipientEmail.trim(),
+            user_email: recipientEmail.trim(),
             from_name: 'ExamSphere Controller Admin',
             from_email: 'admin@examsphere.edu',
 
             // Domain aliases
             to_name: recipientEmail.split('@')[0],
             room_number: roomNumber.trim(),
+            room: roomNumber.trim(),
             exam_name: examName.trim() || 'Scheduled Examination',
-            subject: emailSubject
+            exam: examName.trim() || 'Scheduled Examination'
           };
 
           await emailjs.send(
-            emailJsConfig.serviceId.trim(),
-            emailJsConfig.templateId.trim(),
+            facConfig.serviceId.trim(),
+            facConfig.templateId.trim(),
             templateParams,
-            emailJsConfig.publicKey.trim()
+            facConfig.publicKey.trim()
           );
           emailJsDispatched = true;
         } catch (ejsErr) {
@@ -311,83 +308,242 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
               )}
 
               <form onSubmit={handleSaveEmailJsKeys}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>
-                      Service ID <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={emailJsConfig.serviceId}
-                      onChange={(e) => setEmailJsConfig({ ...emailJsConfig, serviceId: e.target.value })}
-                      placeholder="e.g. service_xxxxxx"
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '6px',
-                        background: '#1e293b',
-                        border: '1px solid #334155',
-                        color: '#fff',
-                        fontSize: '0.82rem'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>
-                      Template ID <span style={{ color: '#ef4444' }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={emailJsConfig.templateId}
-                      onChange={(e) => setEmailJsConfig({ ...emailJsConfig, templateId: e.target.value })}
-                      placeholder="e.g. template_xxxxxx"
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '6px',
-                        background: '#1e293b',
-                        border: '1px solid #334155',
-                        color: '#fff',
-                        fontSize: '0.82rem'
-                      }}
-                    />
+                {/* Public Keys Grid */}
+                <div style={{ marginBottom: '1rem', background: 'rgba(0, 0, 0, 0.25)', padding: '0.85rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', marginBottom: '0.3rem' }}>
+                        🔑 Public Key (Faculty & Doubt Support) <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.facultyAndDoubtPublicKey || emailJsConfig.publicKey || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          facultyAndDoubtPublicKey: e.target.value,
+                          publicKey: e.target.value
+                        })}
+                        placeholder="e.g. D3VVFUSreFR_UXg3o"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.82rem'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#34d399', marginBottom: '0.3rem' }}>
+                        🔑 Separate Public Key (Students) <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.studentPublicKey || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          studentPublicKey: e.target.value
+                        })}
+                        placeholder="e.g. your_student_public_key"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.82rem'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.3rem' }}>
-                    Public Key (User ID) <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={emailJsConfig.publicKey}
-                    onChange={(e) => setEmailJsConfig({ ...emailJsConfig, publicKey: e.target.value })}
-                    placeholder="e.g. user_xxxxxx or your EmailJS Public Key"
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '6px',
-                      background: '#1e293b',
-                      border: '1px solid #334155',
-                      color: '#fff',
-                      fontSize: '0.82rem'
-                    }}
-                  />
+                {/* 1. Faculty Service & Template */}
+                <div style={{ marginBottom: '1rem', background: 'rgba(59, 130, 246, 0.08)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#60a5fa', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>🧑‍🏫 1. Faculty Notifications & Duty Roster</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                        Faculty Service ID <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.faculty?.serviceId || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          faculty: { ...(emailJsConfig.faculty || {}), serviceId: e.target.value }
+                        })}
+                        placeholder="e.g. service_faculty"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                        Faculty Template ID <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.faculty?.templateId || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          faculty: { ...(emailJsConfig.faculty || {}), templateId: e.target.value }
+                        })}
+                        placeholder="e.g. template_faculty"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                    Variables in template: <code>&#123;&#123;to_email&#125;&#125;</code>, <code>&#123;&#123;room_number&#125;&#125;</code>, <code>&#123;&#123;exam_name&#125;&#125;</code>, <code>&#123;&#123;message&#125;&#125;</code>
+                {/* 2. Students Service & Template */}
+                <div style={{ marginBottom: '1rem', background: 'rgba(16, 185, 129, 0.08)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#34d399', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>🎓 2. Student Seating Allotment & Hall Ticket</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                        Students Service ID <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.students?.serviceId || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          students: { ...(emailJsConfig.students || {}), serviceId: e.target.value }
+                        })}
+                        placeholder="e.g. service_students"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                        Students Template ID <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.students?.templateId || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          students: { ...(emailJsConfig.students || {}), templateId: e.target.value }
+                        })}
+                        placeholder="e.g. template_students"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Doubt Support Service & Template */}
+                <div style={{ marginBottom: '1.25rem', background: 'rgba(234, 179, 8, 0.08)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.25)' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#facc15', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>❓ 3. Doubt Support & Emergency Room Dispatch</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                        Doubt Support Service ID <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.doubtSupport?.serviceId || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          doubtSupport: { ...(emailJsConfig.doubtSupport || {}), serviceId: e.target.value }
+                        })}
+                        placeholder="e.g. service_doubts"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                        Doubt Support Template ID <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={emailJsConfig.doubtSupport?.templateId || ''}
+                        onChange={(e) => setEmailJsConfig({
+                          ...emailJsConfig,
+                          doubtSupport: { ...(emailJsConfig.doubtSupport || {}), templateId: e.target.value }
+                        })}
+                        placeholder="e.g. template_doubts"
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '6px',
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          color: '#fff',
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                    Aliases automatically supported: <code>to_email</code>, <code>to_name</code>, <code>room_number</code>, <code>seat_number</code>, <code>exam_name</code>, <code>message</code>
                   </div>
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    style={{ fontSize: '0.78rem', padding: '0.4rem 0.9rem' }}
+                    style={{ fontSize: '0.8rem', padding: '0.45rem 1rem', background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)' }}
                   >
-                    Save EmailJS Keys
+                    Save 3-Channel EmailJS Keys
                   </button>
                 </div>
               </form>

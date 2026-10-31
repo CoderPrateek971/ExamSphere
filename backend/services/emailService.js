@@ -1,40 +1,69 @@
 const EMAILJS_CONFIG = require('../config/emailjsConfig');
 
 /**
- * EmailJS Dispatch Service for ExamSphere
- * Replaces SMTP/Nodemailer with EmailJS (https://www.emailjs.com)
+ * Multi-Channel EmailJS Dispatch Service for ExamSphere
+ * Dedicated Service IDs & Templates for:
+ * 1. FACULTY: Duty assignments, roster alerts, teacher room requests
+ * 2. STUDENTS: Seating allotment, hall tickets, seat coordinates
+ * 3. DOUBT_SUPPORT: Real-time exam-hall question paper clarification calls
  */
 class EmailService {
   constructor() {
-    this.serviceId = process.env.EMAILJS_SERVICE_ID || EMAILJS_CONFIG.SERVICE_ID;
-    this.templateId = process.env.EMAILJS_TEMPLATE_ID || EMAILJS_CONFIG.TEMPLATE_ID;
-    this.publicKey = process.env.EMAILJS_PUBLIC_KEY || EMAILJS_CONFIG.PUBLIC_KEY;
-    this.privateKey = process.env.EMAILJS_PRIVATE_KEY || EMAILJS_CONFIG.PRIVATE_KEY;
-  }
-
-  isConfigured() {
-    const sId = process.env.EMAILJS_SERVICE_ID || this.serviceId;
-    const tId = process.env.EMAILJS_TEMPLATE_ID || this.templateId;
-    const pKey = process.env.EMAILJS_PUBLIC_KEY || this.publicKey;
-    return Boolean(sId && tId && pKey);
+    this.config = EMAILJS_CONFIG;
   }
 
   /**
-   * Send real email via EmailJS API with Room Number focus
+   * Resolve credentials for the target channel
+   * @param {'FACULTY'|'STUDENTS'|'DOUBT_SUPPORT'|string} channel 
    */
-  async sendEmail({ to, subject, text, html, roomNumber = null, facultyName = '', examName = '', senderName = '' }) {
+  resolveChannelConfig(channel = 'FACULTY') {
+    return this.config.getCredentials(channel);
+  }
+
+  isConfigured(channel = 'FACULTY') {
+    const creds = this.resolveChannelConfig(channel);
+    return Boolean(creds.SERVICE_ID && creds.TEMPLATE_ID && creds.PUBLIC_KEY);
+  }
+
+  /**
+   * Send real email via EmailJS API using channel-specific service and template
+   */
+  async sendEmail({
+    to,
+    subject,
+    text,
+    html,
+    roomNumber = null,
+    seatNumber = null,
+    facultyName = '',
+    studentName = '',
+    examName = '',
+    courseCode = '',
+    senderName = '',
+    channel = 'FACULTY', // 'FACULTY' | 'STUDENTS' | 'DOUBT_SUPPORT'
+    extraParams = {}
+  }) {
     if (!to) {
       throw new Error('Recipient email is required.');
     }
 
-    const cleanRoom = roomNumber || 'Assigned Room';
-    const cleanSubject = subject || `[ExamSphere URGENT] Visit Room ${cleanRoom} - Faculty Examination Request`;
-    const cleanMessage = text || `Urgent notification: Please visit Room ${cleanRoom} immediately.`;
+    const channelCreds = this.resolveChannelConfig(channel);
+    const serviceId = channelCreds.SERVICE_ID;
+    const templateId = channelCreds.TEMPLATE_ID;
+    const publicKey = channelCreds.PUBLIC_KEY || this.config.PUBLIC_KEY;
+    const privateKey = this.config.PRIVATE_KEY;
 
-    const serviceId = process.env.EMAILJS_SERVICE_ID || this.serviceId;
-    const templateId = process.env.EMAILJS_TEMPLATE_ID || this.templateId;
-    const publicKey = process.env.EMAILJS_PUBLIC_KEY || this.publicKey;
-    const privateKey = process.env.EMAILJS_PRIVATE_KEY || this.privateKey;
+    const cleanRoom = roomNumber || 'Assigned Room';
+    const cleanSeat = seatNumber || 'Assigned Desk';
+    const cleanSubject = subject || (channel === 'DOUBT_SUPPORT'
+      ? `[ExamSphere URGENT] Visit Room ${cleanRoom} - Faculty Doubt Request`
+      : channel === 'STUDENTS'
+      ? `Exam Seating Allotment: ${examName || 'Examination'} [Room ${cleanRoom}]`
+      : `[ExamSphere] Examination Notification: Room ${cleanRoom}`);
+
+    const recipientName = facultyName || studentName || to.split('@')[0];
+    const cleanMessage = text || `Notification regarding Room ${cleanRoom}.`;
+    const currentTime = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (serviceId && templateId && publicKey) {
       try {
@@ -43,22 +72,37 @@ class EmailService {
           template_id: templateId,
           user_id: publicKey,
           template_params: {
-            // Standard parameters from EmailJS template
+            // Standard universal EmailJS template parameters
             title: cleanSubject,
-            name: facultyName || to.split('@')[0],
-            time: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+            subject: cleanSubject,
+            name: recipientName,
+            time: currentTime,
+            date: new Date().toLocaleDateString('en-US', { dateStyle: 'medium' }),
             message: cleanMessage,
             to_email: to,
+            to_name: recipientName,
             recipient_email: to,
-            from_name: senderName || 'Exam Controller Admin',
+            email: to,
+            user_email: to,
+            from_name: senderName || 'Exam Controller Administration',
             from_email: 'admin@examsphere.edu',
-            
-            // Domain-specific aliases
-            to_name: facultyName || to.split('@')[0],
+            sender_name: senderName || 'Exam Controller Cell',
+
+            // Domain-specific fields
             room_number: cleanRoom,
+            room: cleanRoom,
+            seat_number: cleanSeat,
+            seat: cleanSeat,
+            desk_number: cleanSeat,
             exam_name: examName || 'Scheduled Examination',
-            subject: cleanSubject,
-            sender_name: senderName || 'Exam Controller'
+            exam: examName || 'Scheduled Examination',
+            course_code: courseCode || 'EXAM',
+            faculty_name: facultyName || recipientName,
+            student_name: studentName || recipientName,
+            channel: channel,
+
+            // Spread any custom template variables
+            ...extraParams
           }
         };
 
@@ -82,17 +126,21 @@ class EmailService {
         return {
           success: true,
           provider: 'EmailJS',
+          channel,
+          serviceId,
+          templateId,
           isRealEmailJs: true,
           status: 'SENT',
           recipient: to,
           roomNumber: cleanRoom,
-          message: `Real email successfully dispatched to ${to} via EmailJS for Room ${cleanRoom}`
+          message: `Real email successfully dispatched to ${to} via EmailJS [${channel}] (Service: ${serviceId}, Template: ${templateId})`
         };
       } catch (err) {
-        console.error('[EmailService - EmailJS] API Error:', err.message);
+        console.error(`[EmailService - EmailJS ${channel}] API Error:`, err.message);
         return {
           success: false,
           provider: 'EmailJS',
+          channel,
           isRealEmailJs: false,
           error: err.message,
           recipient: to,
@@ -101,15 +149,15 @@ class EmailService {
       }
     }
 
-    // EmailJS credentials pending in .env or frontend modal
     return {
       success: true,
       provider: 'EmailJS',
+      channel,
       isRealEmailJs: false,
       status: 'PENDING_CONFIG',
       recipient: to,
       roomNumber: cleanRoom,
-      message: `Notification queued for ${to} for Room ${cleanRoom}. EmailJS credentials pending in .env or frontend modal.`
+      message: `Notification formatted for ${to} [${channel}]. EmailJS keys pending.`
     };
   }
 

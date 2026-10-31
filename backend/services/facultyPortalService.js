@@ -543,7 +543,7 @@ class FacultyPortalService {
     const emailSubject = emailData.subject;
     const emailBody = emailData.text;
 
-    // Send real email via EmailJS
+    // Send real email via EmailJS using dedicated DOUBT_SUPPORT channel
     let mailResult = { success: false };
     const destinationEmail = recipientEmail && recipientEmail.trim() ? recipientEmail.trim() : targetFaculty.email;
     try {
@@ -552,7 +552,11 @@ class FacultyPortalService {
         subject: emailSubject,
         text: emailBody,
         html: emailData.html,
-        roomNumber: roomDetails.room_number
+        roomNumber: roomDetails.room_number,
+        facultyName: targetFaculty.name,
+        examName: examDetails.exam_name,
+        courseCode: examDetails.course_code || '',
+        channel: 'DOUBT_SUPPORT'
       });
     } catch (mailErr) {
       console.warn('Real mail dispatch error:', mailErr.message);
@@ -814,13 +818,15 @@ ExamSphere Automated Examination Controller
 </div>
     `.trim();
 
-    // Send real email via EmailJS
+    // Send real email via EmailJS using dedicated FACULTY channel
     const mailResult = await emailService.sendEmail({
       to: recipientEmail.trim(),
       subject: emailSubject,
       text: emailText,
       html: emailHtml,
-      roomNumber: roomNumber.trim()
+      roomNumber: roomNumber.trim(),
+      examName: examName.trim(),
+      channel: 'FACULTY'
     });
 
     // Record notification in DB

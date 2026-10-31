@@ -133,7 +133,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
     try {
       const [examsRes, roomsRes] = await Promise.all([
         api.getAllocationExams(),
-        api.getEntities('rooms')
+        api.getRoomsOverview(selectedExamId || null)
       ]);
 
       const examsList = examsRes.data || [];
@@ -397,7 +397,8 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
     await Promise.all([
       loadEnrolledStudents(examId),
       loadExamAllocation(activeQuery),
-      manualRoomId ? loadManualRoomLayout(manualRoomId, examId, false) : Promise.resolve()
+      manualRoomId ? loadManualRoomLayout(manualRoomId, examId, false) : Promise.resolve(),
+      api.getRoomsOverview(examId).then((r) => { if (r.data) setRooms(r.data); }).catch(() => {})
     ]);
   };
 
@@ -848,6 +849,8 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
       // Reload exams and current allocation view
       const updatedExams = await api.getAllocationExams();
       setExams(updatedExams.data || []);
+      const roomsRes = await api.getRoomsOverview(selectedExamId);
+      if (roomsRes.data) setRooms(roomsRes.data);
       const activeQuery = getActiveExamQuery(selectedExamId);
       await Promise.all([
         loadExamAllocation(activeQuery),
@@ -873,6 +876,8 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
       setHasClickedGenerate(false);
       const updatedExams = await api.getAllocationExams();
       setExams(updatedExams.data || []);
+      const roomsRes = await api.getRoomsOverview(selectedExamId);
+      if (roomsRes.data) setRooms(roomsRes.data);
       await loadEnrolledStudents(selectedExamId);
     } catch (err) {
       setFeedback({ type: 'error', message: err.message });
@@ -2299,8 +2304,18 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
-                                background: isChecked ? 'rgba(79, 70, 229, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: `1px solid ${isChecked ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                                background: rm.has_active_booking
+                                  ? 'rgba(245, 158, 11, 0.08)'
+                                  : isChecked
+                                    ? 'rgba(79, 70, 229, 0.15)'
+                                    : 'rgba(255, 255, 255, 0.03)',
+                                border: `1px solid ${
+                                  rm.has_active_booking
+                                    ? 'rgba(245, 158, 11, 0.45)'
+                                    : isChecked
+                                      ? 'var(--primary)'
+                                      : 'var(--border-subtle)'
+                                }`,
                                 padding: '0.5rem 0.85rem',
                                 borderRadius: 'var(--radius-sm)',
                                 cursor: 'pointer',
@@ -2319,9 +2334,53 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                                 }}
                                 style={{ accentColor: 'var(--primary)' }}
                               />
-                              <span>
-                                {rm.room_number} ({rm.capacity} seats • {rm.rows_count}x{rm.cols_count})
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                <span>
+                                  {rm.room_number} ({rm.capacity} seats • {rm.rows_count}x{rm.cols_count})
+                                </span>
+                                {rm.has_active_booking ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      padding: '0.1rem 0.4rem',
+                                      borderRadius: '4px',
+                                      background: 'rgba(245, 158, 11, 0.2)',
+                                      color: '#fbbf24',
+                                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                                      fontWeight: 600
+                                    }}
+                                    title={`Active booking for ${rm.booked_courses}`}
+                                  >
+                                    Active: {rm.booked_courses}
+                                  </span>
+                                ) : rm.allocated_count > 0 ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      padding: '0.1rem 0.4rem',
+                                      borderRadius: '4px',
+                                      background: 'rgba(16, 185, 129, 0.2)',
+                                      color: '#34d399',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    Allocated ({rm.allocated_count})
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      padding: '0.1rem 0.35rem',
+                                      borderRadius: '4px',
+                                      background: 'rgba(255, 255, 255, 0.05)',
+                                      color: 'var(--text-dim)'
+                                    }}
+                                  >
+                                    Vacant
+                                  </span>
+                                )}
+                              </div>
                             </label>
                           );
                         })}
@@ -2549,6 +2608,32 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                         ))}
                       </div>
                     </div>
+
+                    {/* Active Booking Banner if room is already booked for this date & time */}
+                    {roomLayout?.isActiveBookingConflict && roomLayout?.activeBookingDetails && (
+                      <div
+                        style={{
+                          marginBottom: '1.25rem',
+                          padding: '0.75rem 1rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'rgba(245, 158, 11, 0.12)',
+                          border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                          color: '#fbbf24',
+                          fontSize: '0.84rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.65rem'
+                        }}
+                      >
+                        <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                        <div>
+                          <strong>Active Seating Booking Detected for this Room:</strong>
+                          <span style={{ display: 'block', fontSize: '0.78rem', color: '#fde68a', marginTop: '0.15rem' }}>
+                            Room <strong>{roomLayout.room?.room_number}</strong> already has an active seating arrangement booked for <strong>{roomLayout.activeBookingDetails.course_code}</strong> on {roomLayout.activeBookingDetails.exam_date} ({roomLayout.activeBookingDetails.start_time?.slice(0, 5)} - {roomLayout.activeBookingDetails.end_time?.slice(0, 5)}) with {roomLayout.occupiedSeats} seated student(s).
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Blackboard Banner */}
                     <div

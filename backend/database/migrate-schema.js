@@ -42,6 +42,7 @@ async function runMigration() {
   await ensureColumn('students', 'batch', 'VARCHAR(20) NULL');
   await ensureColumn('students', 'batch_year', "VARCHAR(20) DEFAULT '2025'");
   await ensureColumn('students', 'enrolled_courses', 'TEXT NULL');
+  await ensureColumn('students', 'import_order', 'INT NULL DEFAULT 0');
   await ensureColumn('students', 'is_repeat_student', 'BOOLEAN DEFAULT FALSE');
 
   // 5. Exams

@@ -87,7 +87,8 @@ async function migrate() {
     await addColumnIfMissing('students', 'stream_section', 'VARCHAR(50) NULL AFTER department');
     await addColumnIfMissing('students', 'batch_year', "VARCHAR(20) DEFAULT '2025' AFTER stream_section");
     await addColumnIfMissing('students', 'enrolled_courses', 'TEXT NULL AFTER program');
-    await addColumnIfMissing('students', 'is_repeat_student', 'BOOLEAN DEFAULT FALSE AFTER enrolled_courses');
+    await addColumnIfMissing('students', 'import_order', 'INT NULL DEFAULT 0 AFTER enrolled_courses');
+    await addColumnIfMissing('students', 'is_repeat_student', 'BOOLEAN DEFAULT FALSE AFTER import_order');
 
     // 5. faculty
     await addColumnIfMissing('faculty', 'contact_number', 'VARCHAR(30) NULL AFTER email');
@@ -236,14 +237,58 @@ async function migrate() {
     await addColumnIfMissing('ufm_reports', 'resolved_by', 'VARCHAR(120) NULL AFTER penalty_imposed');
     await addColumnIfMissing('ufm_reports', 'resolved_at', 'TIMESTAMP NULL AFTER resolved_by');
 
+    // 16. Ensure all students with enrolled_courses are mapped in student_courses table
+    const [unlinkedStudents] = await connection.query(`
+      SELECT s.id, s.enrollment_no, s.enrolled_courses, s.department, s.semester
+      FROM students s
+      WHERE s.enrolled_courses IS NOT NULL AND s.enrolled_courses != ''
+        AND NOT EXISTS (SELECT 1 FROM student_courses sc WHERE sc.student_id = s.id)
+    `);
+    if (unlinkedStudents && unlinkedStudents.length > 0) {
+      console.log(`  🔄 Syncing course enrollments for ${unlinkedStudents.length} students...`);
+      for (const s of unlinkedStudents) {
+        const codes = (s.enrolled_courses || '').split(/[,;]+/).map(c => c.trim().toUpperCase()).filter(Boolean);
+        for (const code of codes) {
+          let [cRows] = await connection.query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+          let courseId = cRows[0]?.id;
+          if (!courseId) {
+            const [cRes] = await connection.query(
+              'INSERT INTO courses (course_code, course_name, department, semester, difficulty_level) VALUES (?, ?, ?, ?, 3) ON DUPLICATE KEY UPDATE course_code = course_code',
+              [code, code + ' Course', s.department || 'CSE', s.semester || 1]
+            );
+            courseId = cRes?.insertId;
+            if (!courseId) {
+              const [cFound] = await connection.query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+              courseId = cFound[0]?.id;
+            }
+          }
+          if (courseId) {
+            await connection.query(
+              'INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)',
+              [s.id, courseId]
+            );
+          }
+        }
+      }
+      console.log(`  ✅ Synced course enrollments for ${unlinkedStudents.length} students.`);
+    }
+
     console.log('\n✅ Database schema successfully migrated to the latest blueprint!');
     console.log('All missing columns & tables have been synchronized without data loss.\n');
+    return { success: true };
   } catch (err) {
     console.error('❌ Migration failed:', err.message);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    return { success: false, error: err.message };
   } finally {
     if (connection) await connection.end();
   }
 }
 
-migrate();
+if (require.main === module) {
+  migrate();
+}
+
+module.exports = { migrate };

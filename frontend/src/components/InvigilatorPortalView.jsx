@@ -24,7 +24,6 @@ import {
   Camera,
   RotateCcw,
   X,
-  Upload,
   HelpCircle
 } from 'lucide-react';
 import RaiseDoubtModal from './faculty/RaiseDoubtModal';
@@ -34,6 +33,8 @@ export default function InvigilatorPortalView({ user }) {
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [duties, setDuties] = useState([]);
   const [selectedDutyId, setSelectedDutyId] = useState(null);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [examRooms, setExamRooms] = useState([]);
   const [dutyDetails, setDutyDetails] = useState(null);
   const [students, setStudents] = useState([]);
   const [stats, setStats] = useState(null);
@@ -54,7 +55,6 @@ export default function InvigilatorPortalView({ user }) {
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -86,14 +86,17 @@ export default function InvigilatorPortalView({ user }) {
   }, [loadDuties]);
 
   // 2. Fetch Students for Selected Duty
-  const loadDutyStudents = useCallback(async (dutyId) => {
+  const loadDutyStudents = useCallback(async (dutyId, roomId = null) => {
     if (!dutyId) return;
     try {
-      const res = await api.getDutyStudents(dutyId);
+      const res = await api.getDutyStudents(dutyId, roomId);
       if (res.data) {
         setDutyDetails(res.data.duty);
         setStudents(res.data.students || []);
         setStats(res.data.stats || null);
+        if (res.data.examRooms) {
+          setExamRooms(res.data.examRooms);
+        }
       }
     } catch (err) {
       showToast(`Error fetching classroom roster: ${err.message}`);
@@ -102,9 +105,9 @@ export default function InvigilatorPortalView({ user }) {
 
   useEffect(() => {
     if (selectedDutyId) {
-      loadDutyStudents(selectedDutyId);
+      loadDutyStudents(selectedDutyId, selectedRoomId);
     }
-  }, [selectedDutyId, loadDutyStudents]);
+  }, [selectedDutyId, selectedRoomId, loadDutyStudents]);
 
   // 3. Confirm Duty Status
   const handleConfirmDuty = async (dutyId) => {
@@ -128,7 +131,7 @@ export default function InvigilatorPortalView({ user }) {
     }
   };
 
-  // 4. Mark Individual Student Attendance (Camera for Present, Direct for Absent/Flag)
+  // 4. Mark Individual Student Attendance (Camera for Present, Direct for Absent)
   const handleMarkAttendance = async (studentId, status) => {
     if (!dutyDetails) return;
     if (status === 'PRESENT') {
@@ -160,17 +163,23 @@ export default function InvigilatorPortalView({ user }) {
       showToast('Present attendance requires individual candidate camera photo.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to mark all remaining unverified students as ${status}?`)) {
+    const remainingCount = students.filter(s => s.attendance_status !== 'PRESENT').length;
+    if (remainingCount === 0) {
+      showToast('All candidates in this room are already marked Present.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to mark remaining ${remainingCount} candidate(s) as ${status}? Candidates already marked Present will NOT be changed.`)) {
       return;
     }
     setActionLoading(true);
     try {
       const res = await api.bulkMarkAttendance({
         dutyId: selectedDutyId,
+        roomId: selectedRoomId || dutyDetails?.room_id,
         status,
         verification_method: 'MANUAL'
       });
-      showToast(`Successfully marked ${res.data?.count || 0} students as ${status}.`);
+      showToast(`Successfully marked ${res.data?.count || 0} candidate(s) as ${status}.`);
       await loadDutyStudents(selectedDutyId);
     } catch (err) {
       showToast(`Bulk mark error: ${err.message}`);
@@ -220,7 +229,7 @@ export default function InvigilatorPortalView({ user }) {
       }
     } catch (err) {
       console.warn('Camera stream note:', err.message);
-      setCameraError('Live webcam feed not accessible on this device. You can snap or upload a photo using your file picker/camera.');
+      setCameraError('Live webcam feed not accessible on this device. Please grant camera permissions.');
       setCameraStreamActive(false);
     }
   };
@@ -273,18 +282,6 @@ export default function InvigilatorPortalView({ user }) {
   const handleRetakeSnapshot = () => {
     setCapturedSnapshot(null);
     startCameraStream();
-  };
-
-  // File Upload Fallback
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setCapturedSnapshot(event.target.result);
-      stopCameraStream();
-    };
-    reader.readAsDataURL(file);
   };
 
   // Save Real Clicked Photo to Server & Mark Student Present
@@ -377,7 +374,6 @@ export default function InvigilatorPortalView({ user }) {
     if (statusFilter === 'ALL') return true;
     if (statusFilter === 'PRESENT') return st.attendance_status === 'PRESENT';
     if (statusFilter === 'ABSENT') return st.attendance_status === 'ABSENT';
-    if (statusFilter === 'FLAGGED') return st.attendance_status === 'FLAGGED';
     if (statusFilter === 'UNVERIFIED') return !st.attendance_status;
     return true;
   });
@@ -754,28 +750,70 @@ export default function InvigilatorPortalView({ user }) {
                 </div>
               </div>
 
-              {/* Duty Selector Dropdown */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Switch Hall:</span>
-                <select
-                  value={selectedDutyId || ''}
-                  onChange={(e) => setSelectedDutyId(Number(e.target.value))}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-main)',
-                    border: '1px solid var(--border-subtle)',
-                    padding: '0.4rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.82rem',
-                    fontWeight: 600
-                  }}
-                >
-                  {duties.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      Room {d.room_number} - {d.course_code}
-                    </option>
-                  ))}
-                </select>
+              {/* Duty & Room Hall Selector Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                {duties.length > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Duty:</span>
+                    <select
+                      value={selectedDutyId || ''}
+                      onChange={(e) => {
+                        const newId = Number(e.target.value);
+                        setSelectedDutyId(newId);
+                        setSelectedRoomId(null);
+                      }}
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-main)',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '0.4rem 0.65rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.82rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      {duties.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.course_code} - Room {d.room_number}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Switch Hall:</span>
+                  <select
+                    value={selectedRoomId || dutyDetails?.room_id || ''}
+                    onChange={(e) => {
+                      const rId = Number(e.target.value);
+                      setSelectedRoomId(rId);
+                    }}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-subtle)',
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600
+                    }}
+                  >
+                    {examRooms && examRooms.length > 0 ? (
+                      examRooms.map((rm) => (
+                        <option key={rm.room_id} value={rm.room_id}>
+                          Room {rm.room_number} ({rm.student_count || 0} students)
+                        </option>
+                      ))
+                    ) : (
+                      duties.map((d) => (
+                        <option key={d.id} value={d.room_id}>
+                          Room {d.room_number} - {d.course_code}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -794,11 +832,6 @@ export default function InvigilatorPortalView({ user }) {
               <div style={{ padding: '0.4rem 0.75rem', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.68rem', color: 'var(--accent-rose)', fontWeight: 700 }}>ABSENT</div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fb7185' }}>{stats?.absentCount || 0}</div>
-              </div>
-
-              <div style={{ padding: '0.4rem 0.75rem', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.68rem', color: 'var(--accent-amber)', fontWeight: 700 }}>FLAGGED</div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fbbf24' }}>{stats?.flaggedCount || 0}</div>
               </div>
 
               <div style={{ padding: '0.4rem 0.75rem', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
@@ -914,7 +947,7 @@ export default function InvigilatorPortalView({ user }) {
             {/* Status Filter Pills & View Mode */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(0,0,0,0.3)', padding: '0.2rem', borderRadius: 'var(--radius-sm)' }}>
-                {['ALL', 'PRESENT', 'ABSENT', 'FLAGGED', 'UNVERIFIED'].map((f) => (
+                {['ALL', 'PRESENT', 'ABSENT', 'UNVERIFIED'].map((f) => (
                   <button
                     key={f}
                     onClick={() => setStatusFilter(f)}
@@ -981,7 +1014,6 @@ export default function InvigilatorPortalView({ user }) {
               {filteredStudents.map((st) => {
                 const isPresent = st.attendance_status === 'PRESENT';
                 const isAbsent = st.attendance_status === 'ABSENT';
-                const isFlagged = st.attendance_status === 'FLAGGED';
                 const realPhotoUrl = getFullPhotoUrl(st.photo_path);
 
                 return (
@@ -994,15 +1026,11 @@ export default function InvigilatorPortalView({ user }) {
                         ? 'rgba(16, 185, 129, 0.05)'
                         : isAbsent
                         ? 'rgba(244, 63, 94, 0.05)'
-                        : isFlagged
-                        ? 'rgba(245, 158, 11, 0.05)'
                         : 'var(--bg-card)',
                       border: isPresent
                         ? '1px solid rgba(16, 185, 129, 0.35)'
                         : isAbsent
                         ? '1px solid rgba(244, 63, 94, 0.35)'
-                        : isFlagged
-                        ? '1px solid rgba(245, 158, 11, 0.35)'
                         : '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-md)',
                       display: 'flex',
@@ -1021,10 +1049,10 @@ export default function InvigilatorPortalView({ user }) {
 
                         <span
                           className={`badge ${
-                            isPresent ? 'badge-emerald' : isAbsent ? 'badge-rose' : isFlagged ? 'badge-amber' : 'badge-gray'
+                            isPresent ? 'badge-emerald' : isAbsent ? 'badge-rose' : 'badge-gray'
                           }`}
                         >
-                          {isPresent ? (st.photo_path ? '✓ Photo Verified' : 'Verified Present') : isAbsent ? 'Marked Absent' : isFlagged ? 'Flagged' : 'Unverified'}
+                          {isPresent ? (st.photo_path ? '✓ Photo Verified' : 'Verified Present') : isAbsent ? 'Marked Absent' : 'Unverified'}
                         </span>
                       </div>
 
@@ -1166,13 +1194,14 @@ export default function InvigilatorPortalView({ user }) {
                         </div>
                       )}
 
-                      {/* Bottom Row: Absent vs Flag */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                      {/* Mark Absent */}
+                      <div>
                         <button
                           type="button"
                           onClick={() => handleMarkAttendance(st.student_id, 'ABSENT')}
                           style={{
-                            padding: '0.4rem 0.3rem',
+                            width: '100%',
+                            padding: '0.45rem 0.5rem',
                             borderRadius: 'var(--radius-sm)',
                             border: '1px solid rgba(244, 63, 94, 0.4)',
                             background: isAbsent ? 'rgba(244, 63, 94, 0.3)' : 'rgba(244, 63, 94, 0.08)',
@@ -1183,33 +1212,11 @@ export default function InvigilatorPortalView({ user }) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '0.25rem'
+                            gap: '0.35rem'
                           }}
                         >
                           <XCircle size={13} />
-                          <span>Absent</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleMarkAttendance(st.student_id, 'FLAGGED')}
-                          style={{
-                            padding: '0.4rem 0.3rem',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid rgba(245, 158, 11, 0.4)',
-                            background: isFlagged ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.08)',
-                            color: isFlagged ? '#fff' : 'var(--accent-amber)',
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.25rem'
-                          }}
-                        >
-                          <AlertTriangle size={13} />
-                          <span>Flag</span>
+                          <span>Mark Absent</span>
                         </button>
                       </div>
                     </div>
@@ -1236,7 +1243,6 @@ export default function InvigilatorPortalView({ user }) {
                   {filteredStudents.map((st) => {
                     const isPresent = st.attendance_status === 'PRESENT';
                     const isAbsent = st.attendance_status === 'ABSENT';
-                    const isFlagged = st.attendance_status === 'FLAGGED';
                     const realPhotoUrl = getFullPhotoUrl(st.photo_path);
 
                     return (
@@ -1271,7 +1277,7 @@ export default function InvigilatorPortalView({ user }) {
                         <td style={{ padding: '0.65rem 0.75rem' }}>
                           <span
                             className={`badge ${
-                              isPresent ? 'badge-emerald' : isAbsent ? 'badge-rose' : isFlagged ? 'badge-amber' : 'badge-gray'
+                              isPresent ? 'badge-emerald' : isAbsent ? 'badge-rose' : 'badge-gray'
                             }`}
                           >
                             {st.attendance_status || 'UNVERIFIED'}
@@ -1341,23 +1347,6 @@ export default function InvigilatorPortalView({ user }) {
                               }}
                             >
                               Absent
-                            </button>
-
-                            <button
-                              onClick={() => handleMarkAttendance(st.student_id, 'FLAGGED')}
-                              title="Flag Candidate"
-                              style={{
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid rgba(245, 158, 11, 0.35)',
-                                background: isFlagged ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
-                                color: isFlagged ? '#fff' : 'var(--accent-amber)',
-                                fontSize: '0.74rem',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Flag
                             </button>
 
                             <button
@@ -1531,11 +1520,11 @@ export default function InvigilatorPortalView({ user }) {
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          onClick={() => fileInputRef.current?.click()}
+                          onClick={startCameraStream}
                           style={{ fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                         >
-                          <Upload size={14} />
-                          <span>Select / Snap Photo From Device</span>
+                          <RefreshCw size={14} />
+                          <span>Retry Camera Connection</span>
                         </button>
                       </div>
                     )}
@@ -1544,52 +1533,33 @@ export default function InvigilatorPortalView({ user }) {
 
                 {/* Hidden canvas for taking snapshot */}
                 <canvas ref={canvasRef} style={{ display: 'none' }} width={640} height={480} />
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  capture="user"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
               </div>
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '0.65rem' }}>
                 {!capturedSnapshot ? (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={handleTakeSnapshot}
-                      disabled={!cameraStreamActive}
-                      style={{
-                        flex: 2,
-                        padding: '0.65rem',
-                        fontSize: '0.88rem',
-                        fontWeight: 700,
-                        background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem'
-                      }}
-                    >
-                      <Camera size={16} />
-                      <span>📸 Snap Photo Now</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{ flex: 1, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                      title="Upload or pick photo"
-                    >
-                      <Upload size={14} />
-                      <span>Upload</span>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleTakeSnapshot}
+                    disabled={!cameraStreamActive}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      background: cameraStreamActive ? 'linear-gradient(135deg, #06b6d4, #3b82f6)' : 'rgba(255,255,255,0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.45rem',
+                      borderRadius: '8px',
+                      cursor: cameraStreamActive ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <Camera size={18} />
+                    <span>📸 Snap Photo Now</span>
+                  </button>
                 ) : (
                   <>
                     <button
