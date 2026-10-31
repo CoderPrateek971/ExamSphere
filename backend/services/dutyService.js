@@ -183,39 +183,84 @@ class DutyService {
       ORDER BY e.exam_date ASC, e.start_time ASC, r.capacity DESC
     `);
 
-    // Fallback: If seating hasn't been run yet, assign 1 room per scheduled exam
-    if (examRooms.length === 0) {
-      const [scheduledExams] = await query(`
-        SELECT 
-          e.id as exam_id, 
-          e.exam_name, 
-          e.exam_date, 
-          e.start_time, 
-          e.end_time,
-          c.department as course_dept
-        FROM exams e
-        JOIN courses c ON e.course_id = c.id
-        WHERE e.id NOT IN (SELECT exam_id FROM invigilation_duties)
-        ORDER BY e.exam_date ASC, e.start_time ASC
-      `);
+    // Step 1b: Also include any scheduled exams that have NOT yet been seated or have no duties assigned
+    const [unseatedExams] = await query(`
+      SELECT 
+        e.id as exam_id, 
+        e.exam_name, 
+        e.exam_date, 
+        e.start_time, 
+        e.end_time,
+        c.department as course_dept
+      FROM exams e
+      JOIN courses c ON e.course_id = c.id
+      WHERE e.id NOT IN (SELECT DISTINCT exam_id FROM seat_allocations)
+        AND e.id NOT IN (SELECT DISTINCT exam_id FROM invigilation_duties)
+      ORDER BY e.exam_date ASC, e.start_time ASC
+    `);
 
-      const [defaultRooms] = await query('SELECT * FROM rooms WHERE is_available = TRUE ORDER BY capacity DESC');
+    if (unseatedExams.length > 0) {
+      const [availableRooms] = await query('SELECT * FROM rooms WHERE is_available = TRUE ORDER BY capacity DESC');
+      if (availableRooms.length > 0) {
+        // Track room occupancies across date and time to prevent room clashing
+        const roomOccupancies = [];
+        for (const er of examRooms) {
+          const dStr = er.exam_date instanceof Date ? er.exam_date.toISOString().split('T')[0] : String(er.exam_date).split('T')[0];
+          roomOccupancies.push({
+            roomId: er.room_id,
+            dateStr: dStr,
+            start: er.start_time,
+            end: er.end_time
+          });
+        }
+        const [existingDuties] = await query(`
+          SELECT id.room_id, e.exam_date, e.start_time, e.end_time 
+          FROM invigilation_duties id 
+          JOIN exams e ON id.exam_id = e.id
+        `);
+        for (const ed of existingDuties) {
+          const dStr = ed.exam_date instanceof Date ? ed.exam_date.toISOString().split('T')[0] : String(ed.exam_date).split('T')[0];
+          roomOccupancies.push({
+            roomId: ed.room_id,
+            dateStr: dStr,
+            start: ed.start_time,
+            end: ed.end_time
+          });
+        }
 
-      if (defaultRooms.length > 0 && scheduledExams.length > 0) {
-        examRooms = scheduledExams.map((ex, idx) => {
-          const room = defaultRooms[idx % defaultRooms.length];
-          return {
+        for (const ex of unseatedExams) {
+          const exDateStr = ex.exam_date instanceof Date ? ex.exam_date.toISOString().split('T')[0] : String(ex.exam_date).split('T')[0];
+          // Find a room not occupied at exDateStr between ex.start_time and ex.end_time
+          const freeRoom = availableRooms.find(r => {
+            const hasClash = roomOccupancies.some(occ => 
+              occ.roomId === r.id &&
+              occ.dateStr === exDateStr &&
+              ((ex.start_time <= occ.start && ex.end_time > occ.start) ||
+               (ex.start_time < occ.end && ex.end_time >= occ.end) ||
+               (ex.start_time >= occ.start && ex.end_time <= occ.end))
+            );
+            return !hasClash;
+          }) || availableRooms[0];
+
+          roomOccupancies.push({
+            roomId: freeRoom.id,
+            dateStr: exDateStr,
+            start: ex.start_time,
+            end: ex.end_time
+          });
+
+          examRooms.push({
             exam_id: ex.exam_id,
-            room_id: room.id,
+            room_id: freeRoom.id,
             exam_name: ex.exam_name,
             exam_date: ex.exam_date,
             start_time: ex.start_time,
             end_time: ex.end_time,
             course_dept: ex.course_dept,
-            room_number: room.room_number,
-            room_capacity: room.capacity
-          };
-        });
+            room_number: freeRoom.room_number,
+            room_capacity: freeRoom.capacity
+          });
+        }
       }
     }
 
@@ -257,7 +302,7 @@ class DutyService {
         maxDuties: f.max_duties || 5,
         count: existing.length,
         schedule: existing.map(x => ({
-          dateStr: x.exam_date.toISOString().split('T')[0],
+          dateStr: x.exam_date instanceof Date ? x.exam_date.toISOString().split('T')[0] : String(x.exam_date).split('T')[0],
           start: x.start_time,
           end: x.end_time
         }))
@@ -273,7 +318,7 @@ class DutyService {
         : String(session.exam_date).split('T')[0];
 
       // Eligible candidates: Under max duties & no time clash
-      const candidates = Object.values(facultyDutyMap).filter(f => {
+      let candidates = Object.values(facultyDutyMap).filter(f => {
         // Rule 1: Capacity check
         if (f.count >= f.maxDuties) return false;
 
@@ -288,6 +333,21 @@ class DutyService {
         });
         return !hasTimeClash;
       });
+
+      // Fallback: If all candidates reached max duties, relax capacity limit while strictly enforcing no time clash
+      if (candidates.length === 0) {
+        candidates = Object.values(facultyDutyMap).filter(f => {
+          const hasTimeClash = f.schedule.some(s => {
+            if (s.dateStr !== dateStr) return false;
+            return (
+              (session.start_time <= s.start && session.end_time > s.start) ||
+              (session.start_time < s.end && session.end_time >= s.end) ||
+              (session.start_time >= s.start && session.end_time <= s.end)
+            );
+          });
+          return !hasTimeClash;
+        });
+      }
 
       if (candidates.length === 0) {
         continue; // Faculty shortage for this particular slot

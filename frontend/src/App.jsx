@@ -139,7 +139,7 @@ export default function App() {
             </div>
             <div className="brand-text">
               <h1>ExamSphere</h1>
-              <p>Teacher Invigilation Portal</p>
+              <p>Faculty & Invigilation Workspace</p>
             </div>
           </div>
 
@@ -167,7 +167,7 @@ export default function App() {
                   border: '1px solid rgba(6, 182, 212, 0.4)'
                 }}
               >
-                TEACHER
+                FACULTY & INVIGILATOR
               </span>
             </div>
 
@@ -194,7 +194,7 @@ export default function App() {
               onClick={() => setFacultyTab('doubts')}
             >
               <HelpCircle size={16} />
-              <span>Faculty Portal & Doubt Resolution (Module 6)</span>
+              <span>Subject Doubts Inbox (Courses I Teach)</span>
             </button>
 
             <button
@@ -202,7 +202,7 @@ export default function App() {
               onClick={() => setFacultyTab('invigilation')}
             >
               <Eye size={16} />
-              <span>Invigilation & Attendance (Module 7)</span>
+              <span>Classroom Invigilation & Attendance (My Assigned Hall)</span>
             </button>
 
             <button
@@ -210,7 +210,7 @@ export default function App() {
               onClick={() => setFacultyTab('incident')}
             >
               <FileText size={16} />
-              <span>Submit Cheating Report (Module 8)</span>
+              <span>Submit Cheating Report (UFM)</span>
             </button>
           </div>
 

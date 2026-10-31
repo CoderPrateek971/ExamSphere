@@ -135,6 +135,8 @@ class SchedulingService {
         c.department,
         c.semester,
         c.difficulty_level,
+        c.course_coordinator_id,
+        c.course_coordinator_name,
         (SELECT COUNT(*) FROM seat_allocations sa WHERE sa.exam_id = e.id) AS allocated_students_count,
         (SELECT COUNT(DISTINCT room_id) FROM seat_allocations sa WHERE sa.exam_id = e.id) AS rooms_used_count,
         (SELECT COUNT(*) FROM invigilation_duties id WHERE id.exam_id = e.id) AS assigned_faculty_count,
@@ -1088,7 +1090,7 @@ class SchedulingService {
 
           if (!overlappingConflict && satisfiesDateSeparation && satisfiesPrep) {
             const typeLabel = examType === 'END_TERM' ? 'Final Examination' : examType === 'MID_TERM' ? 'Mid-Term Exam' : 'Quiz';
-            const examName = `${course.course_code} ${typeLabel}`;
+            const examName = `${course.course_name || course.course_code} (${course.course_code}) ${typeLabel}`;
 
             const [result] = await query(
               `INSERT INTO exams (course_id, exam_name, exam_type, exam_date, start_time, end_time, duration_minutes, status) 

@@ -449,12 +449,27 @@ class FacultyPortalService {
     `;
     const params = [];
 
-    if (email && email.trim()) {
-      sql += ' AND (LOWER(f.email) = LOWER(?) OR LOWER(inv.email) = LOWER(?))';
-      params.push(email.trim(), email.trim());
-    } else if (facultyId) {
-      sql += ' AND (dr.faculty_id = ? OR dr.invigilator_id = ?)';
-      params.push(facultyId, facultyId);
+    let facId = facultyId;
+    let facEmail = email && email.trim() ? email.trim().toLowerCase() : null;
+
+    if (facEmail && !facId) {
+      const [fac] = await query('SELECT id FROM faculty WHERE LOWER(email) = ?', [facEmail]);
+      if (fac.length > 0) facId = fac[0].id;
+    } else if (facId && !facEmail) {
+      const [fac] = await query('SELECT email FROM faculty WHERE id = ?', [facId]);
+      if (fac.length > 0) facEmail = fac[0].email ? fac[0].email.toLowerCase() : null;
+    }
+
+    if (facId || facEmail) {
+      sql += ` AND (
+        dr.faculty_id = ? 
+        OR LOWER(f.email) = ?
+        OR dr.invigilator_id = ?
+        OR LOWER(inv.email) = ?
+        OR c.course_coordinator_id = ?
+        OR c.id IN (SELECT course_id FROM course_section_instructors WHERE instructor_id = ?)
+      )`;
+      params.push(facId || 0, facEmail || '', facId || 0, facEmail || '', facId || 0, facId || 0);
     }
 
     if (examId) {

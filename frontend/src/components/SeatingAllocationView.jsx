@@ -1857,11 +1857,15 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
               }}
             >
               <option value="">-- Choose Subject / Course Examination --</option>
-              {exams.map((ex) => (
-                <option key={ex.id} value={ex.id} style={{ background: '#111827', color: '#fff' }}>
-                  {ex.course_code}: {ex.exam_name} ({ex.eligible_students_count} enrolled students)
-                </option>
-              ))}
+              {exams.map((ex) => {
+                const subjectLabel = ex.course_name || ex.course_code;
+                const codeSuffix = ex.course_name ? ` (${ex.course_code})` : '';
+                return (
+                  <option key={ex.id} value={ex.id} style={{ background: '#111827', color: '#fff' }}>
+                    {subjectLabel}{codeSuffix} — {ex.eligible_students_count} enrolled students
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -1875,10 +1879,14 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                 fontSize: '0.82rem',
                 color: 'var(--text-muted)',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '0.5rem'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: '0.75rem'
               }}
             >
+              <div>
+                <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.72rem' }}>Subject Name</span>
+                <strong style={{ color: '#38bdf8' }}>{selectedExam.course_name || selectedExam.course_code}</strong>
+              </div>
               <div>
                 <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.72rem' }}>Department</span>
                 <strong style={{ color: 'var(--text-main)' }}>{selectedExam.department}</strong>
@@ -2254,11 +2262,15 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                         </option>
                         {exams
                           .filter((ex) => ex.id.toString() !== selectedExamId)
-                          .map((ex) => (
-                            <option key={ex.id} value={ex.id} style={{ background: '#111827', color: '#fff' }}>
-                              {ex.course_code}: {ex.exam_name} ({ex.eligible_students_count} students)
-                            </option>
-                          ))}
+                          .map((ex) => {
+                            const subjectLabel = ex.course_name || ex.course_code;
+                            const codeSuffix = ex.course_name ? ` (${ex.course_code})` : '';
+                            return (
+                              <option key={ex.id} value={ex.id} style={{ background: '#111827', color: '#fff' }}>
+                                {subjectLabel}{codeSuffix} — {ex.eligible_students_count} students
+                              </option>
+                            );
+                          })}
                       </select>
                     </div>
                   )}
@@ -2985,11 +2997,15 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                           <option value="" disabled>-- Select Secondary Exam --</option>
                           {exams
                             .filter((e) => e.id.toString() !== selectedExamId.toString())
-                            .map((e) => (
-                              <option key={e.id} value={e.id} style={{ background: '#111827', color: '#fff' }}>
-                                {e.course_code} - {e.exam_name} ({e.exam_date ? new Date(e.exam_date).toLocaleDateString() : ''})
-                              </option>
-                            ))}
+                            .map((e) => {
+                              const subjectLabel = e.course_name || e.course_code;
+                              const codeSuffix = e.course_name ? ` (${e.course_code})` : '';
+                              return (
+                                <option key={e.id} value={e.id} style={{ background: '#111827', color: '#fff' }}>
+                                  {subjectLabel}{codeSuffix} ({e.exam_date ? new Date(e.exam_date).toLocaleDateString() : ''})
+                                </option>
+                              );
+                            })}
                         </select>
                       </div>
                     )}
@@ -4080,7 +4096,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                               {ex.course_code}
                             </span>
                             <strong style={{ fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                              {ex.exam_name}
+                              {ex.course_name ? ex.course_name : ex.exam_name}
                             </strong>
                           </div>
 

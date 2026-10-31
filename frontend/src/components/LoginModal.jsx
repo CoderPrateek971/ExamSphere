@@ -483,6 +483,26 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, targetRole
 
               <button
                 type="button"
+                onClick={() => handleQuickFill('harshit.malhotra12@example.com', 'faculty123', 'FACULTY')}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px dashed rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>👨‍🏫 Dr. Harshit Malhotra (CSE)</span>
+                <code style={{ fontSize: '0.72rem', opacity: 0.85 }}>harshit.malhotra12@example.com</code>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => handleQuickFill('nishtha.gupta.24cse@bmu.edu.in', 'faculty123', 'FACULTY')}
                 style={{
                   background: 'rgba(6, 182, 212, 0.1)',
