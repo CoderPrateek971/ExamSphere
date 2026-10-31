@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import { EMAILJS_CONFIG } from '../../config/emailjsConfig';
+import { emailService } from '../../services/emailService';
 import { api } from '../../api';
 
 export default function RaiseDoubtModal({
@@ -138,36 +139,26 @@ export default function RaiseDoubtModal({
 
     setSubmitting(true);
     try {
-      // 1. Direct browser EmailJS dispatch if credentials configured
-      if (EMAILJS_CONFIG.SERVICE_ID && EMAILJS_CONFIG.TEMPLATE_ID && EMAILJS_CONFIG.PUBLIC_KEY) {
-        try {
-          const roomObj = rooms.find(r => String(r.id) === String(formData.roomId));
-          const examObj = exams.find(e => String(e.id) === String(formData.examId));
-          const roomStr = roomObj?.room_number || currentRoom?.room_number || 'Exam Hall';
-          const emailSubject = `[ExamSphere URGENT] Question Paper Doubt in Room ${roomStr}`;
-          const emailBody = `Urgent Student Doubt: ${formData.questionText.trim()}\n\nExam: ${examObj?.exam_name || 'Exam'}\nInvigilator: ${invigilatorUser?.name || 'Room Invigilator'}\nRequired Location: Please visit Room ${roomStr} immediately to address this question.`;
+      // 1. Direct browser EmailJS dispatch using dedicated DOUBT_SUPPORT channel
+      const roomObj = rooms.find(r => String(r.id) === String(formData.roomId));
+      const examObj = exams.find(e => String(e.id) === String(formData.examId));
+      const roomStr = roomObj?.room_number || currentRoom?.room_number || 'Exam Hall';
+      const emailSubject = `[ExamSphere URGENT] Question Paper Doubt in Room ${roomStr}`;
+      const emailBody = `Urgent Student Doubt: ${formData.questionText.trim()}\n\nExam: ${examObj?.exam_name || 'Exam'}\nInvigilator: ${invigilatorUser?.name || 'Room Invigilator'}\nRequired Location: Please visit Room ${roomStr} immediately to address this question.`;
 
-          await emailjs.send(
-            EMAILJS_CONFIG.SERVICE_ID.trim(),
-            EMAILJS_CONFIG.TEMPLATE_ID.trim(),
-            {
-              title: emailSubject,
-              subject: emailSubject,
-              name: targetEmail.split('@')[0],
-              to_name: targetEmail.split('@')[0],
-              to_email: targetEmail,
-              recipient_email: targetEmail,
-              message: emailBody,
-              room_number: roomStr,
-              from_name: invigilatorUser?.name || 'Exam Invigilator',
-              from_email: invigilatorUser?.email || 'invigilator@examsphere.edu',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            },
-            EMAILJS_CONFIG.PUBLIC_KEY.trim()
-          );
-        } catch (ejsErr) {
-          console.warn('Browser EmailJS dispatch warning:', ejsErr);
-        }
+      try {
+        await emailService.sendDoubtNotification({
+          recipientEmail: targetEmail,
+          facultyName: targetEmail.split('@')[0],
+          roomNumber: roomStr,
+          examName: examObj?.exam_name || 'Scheduled Examination',
+          invigilatorName: invigilatorUser?.name || 'Exam Invigilator',
+          questionText: formData.questionText.trim(),
+          subject: emailSubject,
+          message: emailBody
+        });
+      } catch (ejsErr) {
+        console.warn('Browser EmailJS dispatch warning:', ejsErr);
       }
 
       // 2. Submit to backend API to log in database and trigger live doubts stream

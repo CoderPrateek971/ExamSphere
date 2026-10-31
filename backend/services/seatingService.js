@@ -27,13 +27,49 @@ class SeatingService {
 
     if (!examId) return rooms;
 
+    const ids = String(examId)
+      .split(',')
+      .map((x) => parseInt(x.trim(), 10))
+      .filter((n) => !isNaN(n));
+
+    if (ids.length === 0) return rooms;
+
+    const ph = ids.map(() => '?').join(',');
+    const [targetExams] = await query(`SELECT id, exam_date, start_time, end_time FROM exams WHERE id IN (${ph})`, ids);
+    const targetExam = targetExams[0];
+
     for (const room of rooms) {
+      // 1. Own allocations for this exam
       const [allocations] = await query(
-        'SELECT COUNT(*) as count FROM seat_allocations WHERE exam_id = ? AND room_id = ?',
-        [examId, room.id]
+        `SELECT COUNT(*) as count FROM seat_allocations WHERE exam_id IN (${ph}) AND room_id = ?`,
+        [...ids, room.id]
       );
       room.allocated_count = allocations[0]?.count || 0;
-      room.utilization_pct = Math.round((room.allocated_count / room.capacity) * 100);
+
+      // 2. Check if another exam has an active booking in this room on the exact same date & overlapping time slot
+      if (targetExam) {
+        const [conflict] = await query(
+          `SELECT COUNT(sa.id) as count, GROUP_CONCAT(DISTINCT c.course_code SEPARATOR ' / ') as booked_courses
+           FROM seat_allocations sa
+           JOIN exams e ON sa.exam_id = e.id
+           JOIN courses c ON e.course_id = c.id
+           WHERE sa.room_id = ?
+             AND sa.exam_id NOT IN (${ph})
+             AND e.exam_date = ?
+             AND (e.start_time < ? AND e.end_time > ?)`,
+          [room.id, ...ids, targetExam.exam_date, targetExam.end_time, targetExam.start_time]
+        );
+        room.active_booking_count = conflict[0]?.count || 0;
+        room.booked_courses = conflict[0]?.booked_courses || null;
+        room.has_active_booking = room.active_booking_count > 0;
+      } else {
+        room.active_booking_count = 0;
+        room.booked_courses = null;
+        room.has_active_booking = false;
+      }
+
+      const totalOccupied = room.allocated_count + (room.active_booking_count || 0);
+      room.utilization_pct = Math.round((totalOccupied / room.capacity) * 100);
     }
     return rooms;
   }
@@ -195,12 +231,14 @@ class SeatingService {
     const allocations = [];
     const roomGrids = {};
 
-    // Flatten or balance pools
+    // Flatten or balance pools - strictly sort students in natural ascending enrollment order subject-wise
     const groups = studentGroups.map(g => ({
       exam_id: g.exam_id,
       course_id: g.course_id,
       course_code: g.course_code,
-      students: [...g.students]
+      students: [...g.students].sort((a, b) =>
+        String(a.enrollment_no || '').localeCompare(String(b.enrollment_no || ''), undefined, { numeric: true, sensitivity: 'base' })
+      )
     }));
 
     let currentRoomIndex = 0;
@@ -421,7 +459,7 @@ class SeatingService {
          FROM students s
          JOIN student_courses sc ON s.id = sc.student_id
          WHERE sc.course_id = ?
-         ORDER BY s.enrollment_no ASC`,
+         ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC`,
         [exam.course_id]
       );
 
@@ -430,11 +468,16 @@ class SeatingService {
           `SELECT id, enrollment_no, name, email, department, semester, program
            FROM students
            WHERE department = ? AND semester = ?
-           ORDER BY enrollment_no ASC`,
+           ORDER BY LENGTH(enrollment_no) ASC, enrollment_no ASC`,
           [exam.department, exam.semester]
         );
         students = fallbackStudents;
       }
+
+      // Strictly enforce natural ascending enrollment sort subject-wise
+      students.sort((a, b) =>
+        String(a.enrollment_no || '').localeCompare(String(b.enrollment_no || ''), undefined, { numeric: true, sensitivity: 'base' })
+      );
 
       studentGroups.push({
         exam_id: exam.exam_id,
@@ -533,6 +576,24 @@ class SeatingService {
         `DELETE FROM seat_allocations WHERE exam_id IN (${placeholders})`,
         examIdList
       );
+
+      // Clean up any remaining co-allocated or conflicting seats in these selected rooms
+      // for the exact same date & overlapping time slot so the room is created from scratch
+      const roomIds = roomsToUse.map((r) => r.id);
+      if (roomIds.length > 0) {
+        const roomPh = roomIds.map(() => '?').join(',');
+        for (const ex of exams) {
+          await query(
+            `DELETE sa FROM seat_allocations sa
+             JOIN exams e ON sa.exam_id = e.id
+             WHERE sa.room_id IN (${roomPh})
+               AND e.exam_date = ?
+               AND (e.start_time < ? AND e.end_time > ?)
+               AND sa.exam_id NOT IN (${placeholders})`,
+            [...roomIds, ex.exam_date, ex.end_time, ex.start_time, ...examIdList]
+          );
+        }
+      }
     }
 
     for (const alloc of allocations) {
@@ -618,12 +679,15 @@ class SeatingService {
       [examId, targetExam.exam_date, targetExam.start_time]
     );
 
-    const [targetStudents] = await query(
+    let [targetStudents] = await query(
       `SELECT s.*, ? as exam_id, ? as course_code 
        FROM students s 
        WHERE s.department = ? AND s.semester = ?
-       ORDER BY s.enrollment_no ASC`,
+       ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC`,
       [targetExam.id, targetExam.course_code, targetExam.department, targetExam.semester]
+    );
+    targetStudents.sort((a, b) =>
+      String(a.enrollment_no || '').localeCompare(String(b.enrollment_no || ''), undefined, { numeric: true, sensitivity: 'base' })
     );
 
     if (targetStudents.length === 0) {
@@ -640,8 +704,11 @@ class SeatingService {
         `SELECT s.*, ? as exam_id, ? as course_code 
          FROM students s 
          WHERE s.department = ? AND s.semester = ?
-         ORDER BY s.enrollment_no ASC`,
+         ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC`,
         [partnerExam.id, partnerExam.course_code, partnerExam.department, partnerExam.semester]
+      );
+      partnerRows.sort((a, b) =>
+        String(a.enrollment_no || '').localeCompare(String(b.enrollment_no || ''), undefined, { numeric: true, sensitivity: 'base' })
       );
       partnerStudents = partnerRows;
     }
@@ -852,18 +919,9 @@ class SeatingService {
     const rows = room.rows_count || 5;
     const cols = room.cols_count || Math.ceil(room.capacity / rows);
 
-    let sql = `
-      SELECT sa.id, sa.exam_id, sa.room_id, sa.student_id, sa.row_num, sa.col_num, sa.seat_number,
-             s.enrollment_no, s.name AS student_name, s.department,
-             c.course_code, c.course_name,
-             e.exam_name
-      FROM seat_allocations sa
-      JOIN students s ON sa.student_id = s.id
-      JOIN exams e ON sa.exam_id = e.id
-      JOIN courses c ON e.course_id = c.id
-      WHERE sa.room_id = ?
-    `;
-    const params = [roomId];
+    let seats = [];
+    let isActiveBookingConflict = false;
+    let activeBookingDetails = null;
 
     if (examId) {
       const ids = String(examId)
@@ -872,25 +930,111 @@ class SeatingService {
         .filter((n) => !isNaN(n));
 
       if (ids.length > 0) {
-        if (strict || ids.length > 1) {
-          const ph = ids.map(() => '?').join(',');
-          sql += ` AND sa.exam_id IN (${ph})`;
-          params.push(...ids);
-        } else {
-          sql += ` AND (sa.exam_id = ? OR sa.exam_id IN (
-            SELECT DISTINCT sa2.exam_id FROM seat_allocations sa2
-            JOIN exams e2 ON sa2.exam_id = e2.id
-            JOIN exams e1 ON e1.id = ?
-            WHERE sa2.room_id = ? AND (e2.exam_date = e1.exam_date OR e2.id = e1.id)
-          ))`;
-          params.push(ids[0], ids[0], roomId);
+        const ph = ids.map(() => '?').join(',');
+
+        // 1. Fetch details of the requested target exam(s)
+        const [targetExams] = await query(
+          `SELECT id, exam_name, exam_date, start_time, end_time FROM exams WHERE id IN (${ph})`,
+          ids
+        );
+
+        // 2. Check if the requested exam(s) already have seat allocations in this room
+        const [ownAllocations] = await query(
+          `SELECT sa.id, sa.exam_id, sa.room_id, sa.student_id, sa.row_num, sa.col_num, sa.seat_number,
+                  s.enrollment_no, s.name AS student_name, s.department,
+                  c.course_code, c.course_name,
+                  e.exam_name, e.exam_date, e.start_time, e.end_time
+           FROM seat_allocations sa
+           JOIN students s ON sa.student_id = s.id
+           JOIN exams e ON sa.exam_id = e.id
+           JOIN courses c ON e.course_id = c.id
+           WHERE sa.room_id = ? AND sa.exam_id IN (${ph})
+           ORDER BY sa.row_num ASC, sa.col_num ASC`,
+          [roomId, ...ids]
+        );
+
+        if (ownAllocations.length > 0) {
+          // The target exam(s) are already allocated in this room!
+          if (strict || ids.length > 1) {
+            seats = ownAllocations;
+          } else {
+            // Include concurrent co-allocated partner exams that share this room at the exact same date & time slot
+            const targetExam = targetExams[0];
+            const [coAllocations] = await query(
+              `SELECT sa.id, sa.exam_id, sa.room_id, sa.student_id, sa.row_num, sa.col_num, sa.seat_number,
+                      s.enrollment_no, s.name AS student_name, s.department,
+                      c.course_code, c.course_name,
+                      e.exam_name, e.exam_date, e.start_time, e.end_time
+               FROM seat_allocations sa
+               JOIN students s ON sa.student_id = s.id
+               JOIN exams e ON sa.exam_id = e.id
+               JOIN courses c ON e.course_id = c.id
+               WHERE sa.room_id = ?
+                 AND sa.exam_id NOT IN (${ph})
+                 AND e.exam_date = ?
+                 AND (e.start_time < ? AND e.end_time > ?)
+               ORDER BY sa.row_num ASC, sa.col_num ASC`,
+              [roomId, ...ids, targetExam.exam_date, targetExam.end_time, targetExam.start_time]
+            );
+            seats = [...ownAllocations, ...coAllocations];
+          }
+        } else if (targetExams.length > 0) {
+          // Target exam(s) have NO allocations in this room yet.
+          // Check if there is an ACTIVE BOOKING for that room on THAT PARTICULAR DATE AND TIME:
+          const targetExam = targetExams[0];
+          const [conflictingSeats] = await query(
+            `SELECT sa.id, sa.exam_id, sa.room_id, sa.student_id, sa.row_num, sa.col_num, sa.seat_number,
+                    s.enrollment_no, s.name AS student_name, s.department,
+                    c.course_code, c.course_name,
+                    e.exam_name, e.exam_date, e.start_time, e.end_time
+             FROM seat_allocations sa
+             JOIN students s ON sa.student_id = s.id
+             JOIN exams e ON sa.exam_id = e.id
+             JOIN courses c ON e.course_id = c.id
+             WHERE sa.room_id = ?
+               AND sa.exam_id NOT IN (${ph})
+               AND e.exam_date = ?
+               AND (e.start_time < ? AND e.end_time > ?)
+             ORDER BY sa.row_num ASC, sa.col_num ASC`,
+            [roomId, ...ids, targetExam.exam_date, targetExam.end_time, targetExam.start_time]
+          );
+
+          if (conflictingSeats.length > 0) {
+            // Room is actively booked by another examination during this exact date & time slot
+            seats = conflictingSeats;
+            isActiveBookingConflict = true;
+            const distinctCourses = [...new Set(conflictingSeats.map((s) => s.course_code))];
+            activeBookingDetails = {
+              course_code: distinctCourses.join(' / '),
+              exam_name: conflictingSeats[0].exam_name,
+              exam_date: conflictingSeats[0].exam_date,
+              start_time: conflictingSeats[0].start_time,
+              end_time: conflictingSeats[0].end_time,
+              occupiedSeats: conflictingSeats.length
+            };
+          } else {
+            // No active booking for this date & time: create completely from scratch!
+            seats = [];
+            isActiveBookingConflict = false;
+          }
         }
       }
+    } else {
+      const [allSeats] = await query(
+        `SELECT sa.id, sa.exam_id, sa.room_id, sa.student_id, sa.row_num, sa.col_num, sa.seat_number,
+                s.enrollment_no, s.name AS student_name, s.department,
+                c.course_code, c.course_name,
+                e.exam_name
+         FROM seat_allocations sa
+         JOIN students s ON sa.student_id = s.id
+         JOIN exams e ON sa.exam_id = e.id
+         JOIN courses c ON e.course_id = c.id
+         WHERE sa.room_id = ?
+         ORDER BY sa.row_num ASC, sa.col_num ASC`,
+        [roomId]
+      );
+      seats = allSeats;
     }
-
-    sql += ' ORDER BY sa.row_num ASC, sa.col_num ASC';
-
-    const [seats] = await query(sql, params);
 
     const matrix = [];
     const seatMap = {};
@@ -919,7 +1063,9 @@ class SeatingService {
       totalSeats: rows * cols,
       occupiedSeats: seats.length,
       occupancyRate: `${Math.round((seats.length / room.capacity) * 100)}%`,
-      matrix
+      matrix,
+      isActiveBookingConflict,
+      activeBookingDetails
     };
   }
 
@@ -1012,7 +1158,31 @@ class SeatingService {
     }
 
     const ph = ids.map(() => '?').join(',');
-    const [result] = await query(`DELETE FROM seat_allocations WHERE exam_id IN (${ph})`, ids);
+
+    // Also find any co-allocated partner exams sharing the exact same rooms at the same date & time slot
+    const [coExams] = await query(
+      `SELECT DISTINCT sa2.exam_id
+       FROM seat_allocations sa1
+       JOIN exams e1 ON sa1.exam_id = e1.id
+       JOIN seat_allocations sa2 ON sa1.room_id = sa2.room_id AND sa1.exam_id != sa2.exam_id
+       JOIN exams e2 ON sa2.exam_id = e2.id
+       WHERE sa1.exam_id IN (${ph})
+         AND e2.exam_date = e1.exam_date
+         AND (e2.start_time < e1.end_time AND e2.end_time > e1.start_time)`,
+      ids
+    );
+
+    const allIdsToClear = [...ids];
+    if (coExams && coExams.length > 0) {
+      for (const ce of coExams) {
+        if (!allIdsToClear.includes(ce.exam_id)) {
+          allIdsToClear.push(ce.exam_id);
+        }
+      }
+    }
+
+    const allPh = allIdsToClear.map(() => '?').join(',');
+    const [result] = await query(`DELETE FROM seat_allocations WHERE exam_id IN (${allPh})`, allIdsToClear);
 
     try {
       await query(
@@ -1094,7 +1264,7 @@ class SeatingService {
          LEFT JOIN seat_allocations sa ON s.id = sa.student_id AND sa.exam_id = ?
          LEFT JOIN rooms r ON sa.room_id = r.id
          WHERE sc.course_id = ?
-         ORDER BY s.enrollment_no ASC`,
+         ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC`,
         [ex.id, ex.course_code, ex.course_name, ex.id, ex.course_id]
       );
 
@@ -1108,11 +1278,15 @@ class SeatingService {
            LEFT JOIN seat_allocations sa ON s.id = sa.student_id AND sa.exam_id = ?
            LEFT JOIN rooms r ON sa.room_id = r.id
            WHERE s.department = ? AND s.semester = ?
-           ORDER BY s.enrollment_no ASC`,
+           ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC`,
           [ex.id, ex.course_code, ex.course_name, ex.id, ex.department, ex.semester]
         );
         students = fallback;
       }
+
+      students.sort((a, b) =>
+        String(a.enrollment_no || '').localeCompare(String(b.enrollment_no || ''), undefined, { numeric: true, sensitivity: 'base' })
+      );
       allStudents.push(...students);
     }
 

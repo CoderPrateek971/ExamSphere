@@ -47,7 +47,8 @@ async function confirmDuty(req, res) {
 async function getDutyStudents(req, res) {
   try {
     const { dutyId } = req.params;
-    const result = await invigilatorService.getDutyStudents(dutyId);
+    const { room_id } = req.query;
+    const result = await invigilatorService.getDutyStudents(dutyId, room_id);
     return res.status(200).json({
       success: true,
       data: result
@@ -89,16 +90,17 @@ async function markAttendance(req, res) {
 
 async function bulkMarkAttendance(req, res) {
   try {
-    const { dutyId, status, verification_method } = req.body;
+    const { dutyId, roomId, room_id, status, verification_method } = req.body;
     const result = await invigilatorService.bulkMarkAttendance({
       dutyId,
-      status: status || 'PRESENT',
+      overrideRoomId: roomId || room_id || null,
+      status: status || 'ABSENT',
       verification_method: verification_method || 'MANUAL',
       userId: req.user.id
     });
     return res.status(200).json({
       success: true,
-      message: `Bulk marked ${result.count} students as ${status}.`,
+      message: `Bulk marked ${result.count} remaining students as ${status}.`,
       data: result
     });
   } catch (error) {

@@ -11,30 +11,40 @@ export const getFullPhotoUrl = (photoPath) => {
 };
 
 export const api = {
-  // Authentication & User Session
+  // Authentication & User Session (uses sessionStorage so opening website requires login)
   getToken() {
-    return localStorage.getItem('examsphere_token');
+    return sessionStorage.getItem('examsphere_token');
   },
 
   setToken(token) {
-    localStorage.setItem('examsphere_token', token);
+    sessionStorage.setItem('examsphere_token', token);
+    try {
+      localStorage.removeItem('examsphere_token');
+    } catch {}
   },
 
   removeToken() {
-    localStorage.removeItem('examsphere_token');
-    localStorage.removeItem('examsphere_user');
+    sessionStorage.removeItem('examsphere_token');
+    sessionStorage.removeItem('examsphere_user');
+    try {
+      localStorage.removeItem('examsphere_token');
+      localStorage.removeItem('examsphere_user');
+    } catch {}
   },
 
   getUser() {
     try {
-      return JSON.parse(localStorage.getItem('examsphere_user'));
+      return JSON.parse(sessionStorage.getItem('examsphere_user'));
     } catch {
       return null;
     }
   },
 
   setUser(user) {
-    localStorage.setItem('examsphere_user', JSON.stringify(user));
+    sessionStorage.setItem('examsphere_user', JSON.stringify(user));
+    try {
+      localStorage.removeItem('examsphere_user');
+    } catch {}
   },
 
   // Base HTTP Request
@@ -426,8 +436,9 @@ export const api = {
     });
   },
 
-  getDutyStudents(dutyId) {
-    return this.request(`/invigilator/duties/${dutyId}/students`);
+  getDutyStudents(dutyId, roomId = null) {
+    const query = roomId ? `?room_id=${encodeURIComponent(roomId)}` : '';
+    return this.request(`/invigilator/duties/${dutyId}/students${query}`);
   },
 
   markAttendance(payload) {

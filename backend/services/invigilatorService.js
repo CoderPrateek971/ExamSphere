@@ -107,7 +107,29 @@ class InvigilatorService {
 
     sql += ' ORDER BY e.exam_date ASC, e.start_time ASC, id.id ASC';
 
-    const [duties] = await query(sql, params);
+    let [duties] = await query(sql, params);
+
+    // Auto-sync duty room with actual seating allocations if an exam's rooms were modified in Step 3
+    let needsRefetch = false;
+    for (const d of duties) {
+      if (Number(d.allocated_students_count) === 0) {
+        const [actualRooms] = await query(
+          `SELECT sa.room_id, COUNT(*) as cnt 
+           FROM seat_allocations sa 
+           WHERE sa.exam_id = ? 
+           GROUP BY sa.room_id 
+           ORDER BY cnt DESC LIMIT 1`,
+          [d.exam_id]
+        );
+        if (actualRooms.length > 0 && actualRooms[0].room_id !== d.room_id) {
+          await query('UPDATE invigilation_duties SET room_id = ? WHERE id = ?', [actualRooms[0].room_id, d.id]);
+          needsRefetch = true;
+        }
+      }
+    }
+    if (needsRefetch) {
+      [duties] = await query(sql, params);
+    }
 
     // If this specific faculty member has no duties assigned yet, assign an exam and room specifically to them
     if (duties.length === 0 && userRole !== 'ADMIN' && facultyId) {
@@ -154,7 +176,7 @@ class InvigilatorService {
   /**
    * Get students for a specific duty room and exam, including allocated seat and attendance record
    */
-  async getDutyStudents(dutyId) {
+  async getDutyStudents(dutyId, overrideRoomId = null) {
     const [duties] = await query(`
       SELECT id.id, id.exam_id, id.room_id, id.faculty_id, id.status, id.status AS duty_status,
              e.exam_name, e.exam_date, e.start_time, e.end_time,
@@ -175,6 +197,20 @@ class InvigilatorService {
 
     const duty = duties[0];
 
+    // If invigilator selected another allocated hall for this exam session
+    if (overrideRoomId && Number(overrideRoomId) !== duty.room_id) {
+      const [overrideRooms] = await query('SELECT * FROM rooms WHERE id = ?', [overrideRoomId]);
+      if (overrideRooms.length > 0) {
+        duty.room_id = overrideRooms[0].id;
+        duty.room_number = overrideRooms[0].room_number;
+        duty.building = overrideRooms[0].building;
+        duty.capacity = overrideRooms[0].capacity;
+        duty.room_capacity = overrideRooms[0].capacity;
+        duty.rows_count = overrideRooms[0].rows_count;
+        duty.cols_count = overrideRooms[0].cols_count;
+      }
+    }
+
     // 1. Fetch seat allocations in this room for this exam
     let [students] = await query(`
       SELECT sa.id AS allocation_id, sa.seat_number, sa.row_num, sa.col_num,
@@ -186,12 +222,49 @@ class InvigilatorService {
       JOIN students s ON sa.student_id = s.id
       LEFT JOIN attendance att ON att.exam_id = sa.exam_id AND att.student_id = sa.student_id
       WHERE sa.exam_id = ? AND sa.room_id = ?
-      ORDER BY sa.row_num ASC, sa.col_num ASC, s.enrollment_no ASC
+      ORDER BY sa.row_num ASC, sa.col_num ASC, LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC
     `, [duty.exam_id, duty.room_id]);
 
-    // 2. If no seat allocations exist in this room yet, fallback to enrolled students for this course
+    // 2. If no seat allocations exist in this room, check if exam was allocated to other room(s)
     if (students.length === 0) {
-      const [fallbackStudents] = await query(`
+      const [allocatedRooms] = await query(`
+        SELECT sa.room_id, r.room_number, r.building, r.capacity, COUNT(*) as cnt
+        FROM seat_allocations sa
+        JOIN rooms r ON sa.room_id = r.id
+        WHERE sa.exam_id = ?
+        GROUP BY sa.room_id, r.room_number, r.building, r.capacity
+        ORDER BY cnt DESC
+      `, [duty.exam_id]);
+
+      if (allocatedRooms.length > 0) {
+        // Sync duty to the room where seating was actually generated
+        const targetRoom = allocatedRooms[0];
+        await query('UPDATE invigilation_duties SET room_id = ? WHERE id = ?', [targetRoom.room_id, dutyId]);
+        duty.room_id = targetRoom.room_id;
+        duty.room_number = targetRoom.room_number;
+        duty.building = targetRoom.building;
+        duty.capacity = targetRoom.capacity;
+        duty.room_capacity = targetRoom.capacity;
+
+        const [reloaded] = await query(`
+          SELECT sa.id AS allocation_id, sa.seat_number, sa.row_num, sa.col_num,
+                 s.id AS student_id, s.enrollment_no, s.name AS student_name, s.email AS student_email,
+                 s.department AS student_department, s.semester AS student_semester, s.program,
+                 att.id AS attendance_id, att.status AS attendance_status, att.verification_method,
+                 att.face_confidence, att.marked_at, att.photo_path
+          FROM seat_allocations sa
+          JOIN students s ON sa.student_id = s.id
+          LEFT JOIN attendance att ON att.exam_id = sa.exam_id AND att.student_id = sa.student_id
+          WHERE sa.exam_id = ? AND sa.room_id = ?
+          ORDER BY sa.row_num ASC, sa.col_num ASC, LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC
+        `, [duty.exam_id, targetRoom.room_id]);
+        students = reloaded;
+      }
+    }
+
+    // 3. If STILL no seat allocations exist anywhere for this exam, fallback to enrolled students
+    if (students.length === 0) {
+      let [fallbackStudents] = await query(`
         SELECT DISTINCT s.id AS student_id, s.enrollment_no, s.name AS student_name, s.email AS student_email,
                s.department AS student_department, s.semester AS student_semester, s.program,
                att.id AS attendance_id, att.status AS attendance_status, att.verification_method,
@@ -200,9 +273,28 @@ class InvigilatorService {
         JOIN student_courses sc ON s.id = sc.student_id
         JOIN exams e ON e.id = ? AND sc.course_id = e.course_id
         LEFT JOIN attendance att ON att.exam_id = e.id AND att.student_id = s.id
-        ORDER BY s.enrollment_no ASC
+        ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC
         LIMIT ?
       `, [duty.exam_id, duty.capacity || 30]);
+
+      if (fallbackStudents.length === 0) {
+        // Fallback by course code in enrolled_courses string OR matching department & semester
+        const [fallbackByCode] = await query(`
+          SELECT DISTINCT s.id AS student_id, s.enrollment_no, s.name AS student_name, s.email AS student_email,
+                 s.department AS student_department, s.semester AS student_semester, s.program,
+                 att.id AS attendance_id, att.status AS attendance_status, att.verification_method,
+                 att.face_confidence, att.marked_at, att.photo_path
+          FROM students s
+          JOIN exams e ON e.id = ?
+          JOIN courses c ON e.course_id = c.id
+          LEFT JOIN attendance att ON att.exam_id = e.id AND att.student_id = s.id
+          WHERE (s.enrolled_courses LIKE CONCAT('%', c.course_code, '%')
+                 OR (s.department = c.department AND (s.semester = c.semester OR c.semester IS NULL)))
+          ORDER BY LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC
+          LIMIT ?
+        `, [duty.exam_id, duty.capacity || 30]);
+        fallbackStudents = fallbackByCode;
+      }
 
       students = fallbackStudents.map((st, idx) => ({
         ...st,
@@ -212,6 +304,16 @@ class InvigilatorService {
         col_num: (idx % 6) + 1
       }));
     }
+
+    // Query all rooms where this exam has allocated seats
+    const [examRooms] = await query(`
+      SELECT DISTINCT r.id AS room_id, r.room_number, r.building, r.capacity, COUNT(sa.id) AS student_count
+      FROM seat_allocations sa
+      JOIN rooms r ON sa.room_id = r.id
+      WHERE sa.exam_id = ?
+      GROUP BY r.id, r.room_number, r.building, r.capacity
+      ORDER BY r.room_number ASC
+    `, [duty.exam_id]);
 
     // Compute summary statistics
     const totalStudents = students.length;
@@ -224,6 +326,7 @@ class InvigilatorService {
     return {
       duty,
       students,
+      examRooms: examRooms.length > 0 ? examRooms : [{ room_id: duty.room_id, room_number: duty.room_number, building: duty.building, capacity: duty.capacity, student_count: totalStudents }],
       stats: {
         totalStudents,
         presentCount,
@@ -299,22 +402,30 @@ class InvigilatorService {
 
   /**
    * Bulk mark remaining unverified students (e.g. Mark All Present / Mark All Absent)
+   * Important: NEVER overwrite students who are already marked 'PRESENT'!
    */
-  async bulkMarkAttendance({ dutyId, status = 'PRESENT', verification_method = 'MANUAL', userId = null }) {
-    const { duty, students } = await this.getDutyStudents(dutyId);
+  async bulkMarkAttendance({ dutyId, overrideRoomId = null, status = 'ABSENT', verification_method = 'MANUAL', userId = null }) {
+    const { duty, students } = await this.getDutyStudents(dutyId, overrideRoomId);
 
     if (students.length === 0) {
       return { success: true, count: 0, message: 'No students found to mark.' };
     }
 
-    for (const st of students) {
+    // Only mark students who are NOT already PRESENT (i.e. unverified)
+    const targetStudents = students.filter(st => st.attendance_status !== 'PRESENT');
+
+    if (targetStudents.length === 0) {
+      return { success: true, count: 0, message: 'All students in this room are already marked Present.' };
+    }
+
+    for (const st of targetStudents) {
       await query(
         `INSERT INTO attendance (exam_id, student_id, room_id, status, verification_method, marked_at)
          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
          ON DUPLICATE KEY UPDATE
-           status = VALUES(status),
-           verification_method = VALUES(verification_method),
-           marked_at = CURRENT_TIMESTAMP`,
+           status = IF(status = 'PRESENT', 'PRESENT', VALUES(status)),
+           verification_method = IF(status = 'PRESENT', verification_method, VALUES(verification_method)),
+           marked_at = IF(status = 'PRESENT', marked_at, CURRENT_TIMESTAMP)`,
         [duty.exam_id, st.student_id, duty.room_id, status, verification_method]
       );
     }
@@ -325,14 +436,14 @@ class InvigilatorService {
          VALUES (?, 'BULK_ATTENDANCE', 'ATTENDANCE_VERIFICATION', ?)`,
         [
           userId || null,
-          `Bulk marked ${students.length} students as ${status} for Exam ${duty.exam_id}, Room ${duty.room_id}.`
+          `Bulk marked ${targetStudents.length} remaining students as ${status} for Exam ${duty.exam_id}, Room ${duty.room_id}.`
         ]
       );
     } catch (e) {
       // Ignore
     }
 
-    return { success: true, count: students.length, status };
+    return { success: true, count: targetStudents.length, status };
   }
 
   /**
@@ -520,7 +631,7 @@ class InvigilatorService {
       params.push(term, term, term, term, term);
     }
 
-    sql += ' ORDER BY e.id ASC, r.room_number ASC, sa.row_num ASC, sa.col_num ASC, s.enrollment_no ASC';
+    sql += ' ORDER BY e.id ASC, r.room_number ASC, sa.row_num ASC, sa.col_num ASC, LENGTH(s.enrollment_no) ASC, s.enrollment_no ASC';
 
     const [records] = await query(sql, params);
 

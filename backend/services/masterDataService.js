@@ -15,7 +15,7 @@ class MasterDataService {
       LEFT JOIN student_courses sc ON s.id = sc.student_id
       LEFT JOIN courses c ON sc.course_id = c.id
       GROUP BY s.id
-      ORDER BY s.enrollment_no ASC
+      ORDER BY COALESCE(s.import_order, s.id) ASC, s.id ASC
     `);
     return rows;
   }

@@ -24,19 +24,22 @@ const INGESTION_STRATEGIES = {
   students: async (rows) => {
     let count = 0;
     for (const row of rows) {
+      count++;
+      const importOrder = count;
       const finalSemester = parseSemester(row.semester || row.sem || row.term || row.stream_section || row.batch);
       const enrolledStr = row.enrolled_courses || row.enrolled_subjects || '';
       const [result] = await query(
-        `INSERT INTO students (enrollment_no, name, email, department, semester, program, enrolled_courses)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO students (enrollment_no, name, email, department, semester, program, enrolled_courses, import_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE 
            name = VALUES(name), 
            email = VALUES(email), 
            department = VALUES(department), 
            semester = VALUES(semester), 
            program = VALUES(program),
-           enrolled_courses = VALUES(enrolled_courses)`,
-        [row.enrollment_no, row.name, row.email, row.department || 'CSE', finalSemester, row.program || 'B.Tech', enrolledStr]
+           enrolled_courses = VALUES(enrolled_courses),
+           import_order = VALUES(import_order)`,
+        [row.enrollment_no, row.name, row.email, row.department || 'CSE', finalSemester, row.program || 'B.Tech', enrolledStr, importOrder]
       );
 
       // Resolve student id

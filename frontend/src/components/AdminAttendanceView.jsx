@@ -569,7 +569,7 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
           </div>
         </div>
 
-        {/* Flagged / Unverified */}
+        {/* Pending / Unverified */}
         <div
           className="glass-card"
           style={{
@@ -584,15 +584,10 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-amber)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Pending / Flagged
+                Pending / Unverified
               </span>
               <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#fbbf24', marginTop: '0.2rem' }}>
                 {stats.unverifiedCount}
-                {stats.flaggedCount > 0 && (
-                  <span style={{ fontSize: '0.82rem', color: '#f87171', marginLeft: '0.35rem' }}>
-                    ({stats.flaggedCount} FLAGGED)
-                  </span>
-                )}
               </div>
             </div>
             <div
@@ -710,33 +705,7 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
               <option value="ALL">All Statuses</option>
               <option value="PRESENT">Present</option>
               <option value="ABSENT">Absent</option>
-              <option value="FLAGGED">Flagged / Suspicious</option>
               <option value="UNVERIFIED">Pending / Unverified</option>
-            </select>
-          </div>
-
-          {/* Verification Method Filter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: '1 1 160px' }}>
-            <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <ShieldCheck size={13} color="var(--accent-cyan)" />
-              <span>Method</span>
-            </label>
-            <select
-              className="form-control"
-              value={selectedMethod}
-              onChange={(e) => setSelectedMethod(e.target.value)}
-              style={{
-                background: 'rgba(11, 15, 25, 0.8)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-main)',
-                fontSize: '0.85rem',
-                padding: '0.55rem 0.8rem',
-                borderRadius: '8px'
-              }}
-            >
-              <option value="ALL">All Methods</option>
-              <option value="FACE_MATCH">Biometric Face Match</option>
-              <option value="MANUAL">Manual Verification</option>
             </select>
           </div>
 
@@ -789,7 +758,7 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
         </div>
 
         {/* Active Filter Summary Bar */}
-        {(selectedExam !== 'ALL' || selectedRoom !== 'ALL' || selectedStatus !== 'ALL' || selectedMethod !== 'ALL' || searchQuery) && (
+        {(selectedExam !== 'ALL' || selectedRoom !== 'ALL' || selectedStatus !== 'ALL' || searchQuery) && (
           <div
             style={{
               display: 'flex',
@@ -816,11 +785,6 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
             {selectedStatus !== 'ALL' && (
               <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7' }}>
                 Status: {selectedStatus}
-              </span>
-            )}
-            {selectedMethod !== 'ALL' && (
-              <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fcd34d' }}>
-                Method: {selectedMethod}
               </span>
             )}
             {searchQuery && (
@@ -1013,7 +977,6 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
                       <th style={{ padding: '0.85rem 1rem' }}>Exam & Course</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Hall & Seat</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Status</th>
-                      <th style={{ padding: '0.85rem 1.2rem' }}>Verification Telemetry</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1296,104 +1259,7 @@ export default function AdminAttendanceView({ user, onNavigateToStep }) {
                             )}
                           </td>
 
-                          {/* Verification Telemetry */}
-                          <td style={{ padding: '0.75rem 1rem' }}>
-                            {r.photo_path ? (
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '0.3rem',
-                                      fontSize: '0.74rem',
-                                      fontWeight: 700,
-                                      color: 'var(--accent-cyan)',
-                                      background: 'rgba(6, 182, 212, 0.12)',
-                                      padding: '0.15rem 0.45rem',
-                                      borderRadius: '6px'
-                                    }}
-                                  >
-                                    <Camera size={11} />
-                                    PHOTO VERIFIED
-                                  </span>
-                                </div>
-                                {r.marked_at && (
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-                                    {new Date(r.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
-                                    {new Date(r.marked_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                  </div>
-                                )}
-                              </div>
-                            ) : r.verification_method === 'FACE_MATCH' ? (
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '0.3rem',
-                                      fontSize: '0.74rem',
-                                      fontWeight: 700,
-                                      color: 'var(--accent-cyan)',
-                                      background: 'rgba(6, 182, 212, 0.12)',
-                                      padding: '0.15rem 0.45rem',
-                                      borderRadius: '6px'
-                                    }}
-                                  >
-                                    <Camera size={11} />
-                                    FACE MATCH
-                                  </span>
-                                  {r.face_confidence && (
-                                    <span
-                                      style={{
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        color: '#34d399',
-                                        fontFamily: 'monospace'
-                                      }}
-                                    >
-                                      {r.face_confidence}%
-                                    </span>
-                                  )}
-                                </div>
-                                {r.marked_at && (
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-                                    {new Date(r.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
-                                    {new Date(r.marked_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                  </div>
-                                )}
-                              </div>
-                            ) : r.verification_method === 'MANUAL' ? (
-                              <div>
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.3rem',
-                                    fontSize: '0.74rem',
-                                    fontWeight: 600,
-                                    color: 'var(--text-muted)',
-                                    background: 'rgba(255, 255, 255, 0.05)',
-                                    padding: '0.15rem 0.45rem',
-                                    borderRadius: '6px'
-                                  }}
-                                >
-                                  <UserCheck size={11} />
-                                  MANUAL ROSTER
-                                </span>
-                                {r.marked_at && (
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-                                    {new Date(r.marked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
-                                Pending room invigilator
-                              </span>
-                            )}
-                          </td>
+
                         </tr>
                       );
                     })}
