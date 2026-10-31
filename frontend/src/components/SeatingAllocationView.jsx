@@ -180,10 +180,36 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
     if (!examQuery) return;
     try {
       const res = await api.getSeatingByExam(examQuery);
-      setAllocationData(res.data);
-      if (res.data.rooms && res.data.rooms.length > 0) {
-        setActiveRoomId(res.data.rooms[0].room_id);
-        loadRoomMatrix(res.data.rooms[0].room_id, examQuery);
+      let data = res.data;
+
+      // Normalize data if returned as array of rooms
+      if (Array.isArray(data)) {
+        const rooms = data;
+        const allocations = rooms.flatMap((r) => r.students || r.seats || []);
+        data = {
+          exam_id: examQuery,
+          totalAllocated: allocations.length,
+          rooms: rooms.map((r) => ({
+            ...r,
+            room_id: r.room_id || r.id,
+            students: r.students || r.seats || [],
+            seats: r.students || r.seats || []
+          })),
+          allocations
+        };
+      } else if (data && !data.allocations && data.rooms) {
+        data.allocations = data.rooms.flatMap((r) => r.students || r.seats || []);
+        data.totalAllocated = data.totalAllocated !== undefined ? data.totalAllocated : data.allocations.length;
+      }
+
+      setAllocationData(data);
+      if (data && data.totalAllocated > 0) {
+        setHasClickedGenerate(true);
+      }
+      if (data && data.rooms && data.rooms.length > 0) {
+        const firstRoomId = data.rooms[0].room_id || data.rooms[0].id;
+        setActiveRoomId(firstRoomId);
+        loadRoomMatrix(firstRoomId, examQuery);
       } else {
         setActiveRoomId(null);
         setRoomLayout(null);
@@ -576,9 +602,12 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
       setLoadingExamAllocationsId(exam.id);
       try {
         const res = await api.getSeatingByExam(exam.id);
+        const list = Array.isArray(res.data)
+          ? res.data.flatMap((r) => r.students || r.seats || [])
+          : (res.data?.allocations || (res.data?.rooms ? res.data.rooms.flatMap((r) => r.students || r.seats || []) : []));
         setExamAllocationsMap((prev) => ({
           ...prev,
-          [exam.id]: res.data?.allocations || []
+          [exam.id]: list
         }));
       } catch (err) {
         showToast(`Failed to load seating list: ${err.message}`);
@@ -592,8 +621,11 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
     try {
       showToast(`Fetching seating roster for ${exam.course_code}...`);
       const res = await api.getSeatingByExam(exam.id);
-      if (res.data && res.data.allocations && res.data.allocations.length > 0) {
-        exportAllocationsToCSV(res.data.allocations);
+      const list = Array.isArray(res.data)
+        ? res.data.flatMap((r) => r.students || r.seats || [])
+        : (res.data?.allocations || (res.data?.rooms ? res.data.rooms.flatMap((r) => r.students || r.seats || []) : []));
+      if (list && list.length > 0) {
+        exportAllocationsToCSV(list);
       } else {
         showToast(`⚠️ No active seating assignments found for ${exam.course_code}.`);
       }
@@ -779,6 +811,39 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
       });
 
       setHasClickedGenerate(true);
+
+      // If backend returned allocations directly in res.data, populate immediately
+      if (res.data && res.data.allocations) {
+        const roomsMap = {};
+        for (const a of res.data.allocations) {
+          if (!roomsMap[a.room_id]) {
+            roomsMap[a.room_id] = {
+              room_id: a.room_id,
+              room_number: a.room_number,
+              building: a.building,
+              capacity: a.capacity,
+              rows_count: a.rows_count,
+              cols_count: a.cols_count,
+              students: [],
+              seats: []
+            };
+          }
+          roomsMap[a.room_id].students.push(a);
+          roomsMap[a.room_id].seats.push(a);
+        }
+        const activeRooms = Object.values(roomsMap);
+        setAllocationData({
+          exam_id: examIds.join(','),
+          totalAllocated: res.data.allocations.length,
+          rooms: activeRooms,
+          allocations: res.data.allocations,
+          summary: res.data.summary
+        });
+        if (activeRooms.length > 0) {
+          setActiveRoomId(activeRooms[0].room_id);
+          loadRoomMatrix(activeRooms[0].room_id, getActiveExamQuery(selectedExamId));
+        }
+      }
 
       // Reload exams and current allocation view
       const updatedExams = await api.getAllocationExams();
@@ -1669,7 +1734,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
             </button>
           )}
           {/* Download CSV: Only visible after creating plan automatically or after saving in manual */}
-          {((allocationMode === 'AUTOMATIC' && hasClickedGenerate && allocationData && allocationData.totalAllocated > 0) ||
+          {((allocationMode === 'AUTOMATIC' && allocationData && allocationData.totalAllocated > 0) ||
             (allocationMode === 'MANUAL' && allocationData && allocationData.totalAllocated > 0)) && (
               <button
                 className="btn btn-secondary"
@@ -2337,7 +2402,7 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
-                  {hasClickedGenerate && allocationData && allocationData.totalAllocated > 0 && (
+                  {allocationData && allocationData.totalAllocated > 0 && (
                     <button className="btn btn-danger" onClick={handleClearAllocation}>
                       <RotateCcw size={16} />
                       <span>Clear Allocation</span>
@@ -2355,8 +2420,8 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                 </div>
               </div>
 
-              {/* Results Area: Only displayed after user clicks Generate Seating Plan */}
-              {hasClickedGenerate && allocationData && allocationData.totalAllocated > 0 ? (
+              {/* Results Area: Displayed whenever seating plan is generated or active */}
+              {allocationData && allocationData.totalAllocated > 0 ? (
                 <>
                   {/* Real-time Integrity & Metric Summary Cards */}
                   <div className="stats-grid" style={{ marginBottom: '2rem' }}>
@@ -2663,8 +2728,8 @@ export default function SeatingAllocationView({ user, onNavigateToStep }) {
                 </div>
               )}
 
-              {/* Student Seating Roster Table: Only displayed after clicking Generate */}
-              {hasClickedGenerate && allocationData && allocationData.allocations && allocationData.allocations.length > 0 && (
+              {/* Student Seating Roster Table: Displayed whenever seating allocations exist */}
+              {allocationData && allocationData.allocations && allocationData.allocations.length > 0 && (
                 <div
                   className="card"
                   style={{

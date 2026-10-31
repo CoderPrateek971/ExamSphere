@@ -10,23 +10,29 @@ const seatingService = require('../services/seatingService');
 // Allocate seating for an exam using the requested strategy.
 async function allocateSeating(req, res) {
   try {
-    const { examId, roomIds, strategy } = req.body;
+    const { examId, exam_ids, roomIds, room_ids, strategy, clearExisting } = req.body;
+    const resolvedExamIds = exam_ids || (examId ? [examId] : []);
+    const resolvedRoomIds = room_ids || roomIds || null;
+    const userId = req.user ? req.user.id : null;
 
-    if (!examId) {
+    if (resolvedExamIds.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'examId is required.'
+        message: 'examId or exam_ids is required.'
       });
     }
 
-    const result = await seatingService.allocateSeatingForExam(examId, {
-      roomIds,
-      strategy
+    const result = await seatingService.allocateSeats({
+      exam_ids: resolvedExamIds,
+      room_ids: resolvedRoomIds,
+      strategy,
+      clearExisting: clearExisting !== false,
+      userId
     });
 
     return res.status(200).json({
       success: true,
-      message: result.message,
+      message: `Successfully allocated ${result.summary.totalSeatsAllocated} seats across ${result.summary.roomsUtilized} rooms.`,
       data: result
     });
   } catch (err) {
@@ -40,12 +46,21 @@ async function allocateSeating(req, res) {
 // Allocate seats using the multi-exam allocation workflow.
 async function allocateSeats(req, res) {
   try {
-    const { exam_ids, room_ids, strategy, clearExisting } = req.body;
+    const { exam_ids, examId, room_ids, roomIds, strategy, clearExisting } = req.body;
+    const resolvedExamIds = exam_ids || (examId ? [examId] : []);
+    const resolvedRoomIds = room_ids || roomIds || null;
     const userId = req.user ? req.user.id : null;
 
+    if (resolvedExamIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'exam_ids or examId is required.'
+      });
+    }
+
     const result = await seatingService.allocateSeats({
-      exam_ids,
-      room_ids,
+      exam_ids: resolvedExamIds,
+      room_ids: resolvedRoomIds,
       strategy,
       clearExisting: clearExisting !== false,
       userId
@@ -67,11 +82,11 @@ async function allocateSeats(req, res) {
 // Retrieve seating arrangements for a specific exam.
 async function getSeatingForExam(req, res) {
   try {
-    const data = await seatingService.getSeatingByExam(req.params.examId);
+    const data = await seatingService.getSeatingByExamId(req.params.examId);
 
     return res.json({
       success: true,
-      count: data.length,
+      count: data.totalAllocated,
       data
     });
   } catch (err) {

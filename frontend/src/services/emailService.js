@@ -1,15 +1,7 @@
 import emailjs from '@emailjs/browser';
+import { EMAILJS_CONFIG } from '../config/emailjsConfig';
 
-// =====================================================================
-// PERMANENT EMAILJS CONFIGURATION (Hardcoded in code, hidden from UI)
-// =====================================================================
-export const EMAILJS_CONFIG = {
-  SERVICE_ID: 'service_4tt14hg',
-  FACULTY_TEMPLATE_ID: 'template_2n4zh9f',
-  STUDENT_TEMPLATE_ID: 'template_2n4zh9f',
-  TEMPLATE_ID: 'template_2n4zh9f',
-  PUBLIC_KEY: 'ENWrjn5pI5g_ByMeL'
-};
+export { EMAILJS_CONFIG };
 
 export const emailService = {
   getConfig() {

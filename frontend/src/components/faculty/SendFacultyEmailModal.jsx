@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Send, X, AlertCircle, CheckCircle2, Settings, ExternalLink, Sparkles, User, Info, ChevronDown, ChevronUp, Key } from 'lucide-react';
 import emailjs from '@emailjs/browser';
+import { EMAILJS_CONFIG } from '../../config/emailjsConfig';
 import { api } from '../../api';
 
 export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
@@ -18,16 +19,16 @@ export default function SendFacultyEmailModal({ isOpen, onClose, onSuccess }) {
   const [error, setError] = useState(null);
   const [deliveryResult, setDeliveryResult] = useState(null);
 
-  // EmailJS Configuration (Stored in localStorage and falls back to .env)
+  // EmailJS Configuration (Stored in localStorage and falls back to shared emailjsConfig.js)
   const [emailJsConfig, setEmailJsConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('examsphere_emailjs');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {
-      serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
-      templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'pnv9y1p',
-      publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || ''
+      serviceId: EMAILJS_CONFIG.SERVICE_ID,
+      templateId: EMAILJS_CONFIG.TEMPLATE_ID,
+      publicKey: EMAILJS_CONFIG.PUBLIC_KEY
     };
   });
   const [showConfig, setShowConfig] = useState(false);
