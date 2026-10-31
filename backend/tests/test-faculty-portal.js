@@ -114,7 +114,7 @@ async function runFacultyPortalTests() {
         [subjectFaculty.email]
       );
       assert(notifs.length > 0, 'Notification record must be inserted');
-      assert(notifs[0].subject.includes('[ExamSphere URGENT]'), 'Notification subject must have urgent tag');
+      assert(notifs[0].subject.includes('Question Paper Doubt') || notifs[0].subject.includes('Doubt'), 'Notification subject must have doubt tag');
       assert(notifs[0].message.includes(questionText), 'Notification body must contain the student doubt');
 
       console.log(` [TEST 3 PASSED] Student Doubt Request #${createRes.id} successfully created and urgent email notification dispatched to ${subjectFaculty.email}.`);

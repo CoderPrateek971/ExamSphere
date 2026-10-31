@@ -16,7 +16,7 @@ export default function RaiseDoubtModal({
   currentRoom = null,
   invigilatorUser = null,
   initialStudent = null,
-  roomStudents = []
+  classroomStudents = []
 }) {
   const [exams, setExams] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -38,6 +38,10 @@ export default function RaiseDoubtModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  const currentExamId = currentExam?.id || currentExam?.exam_id;
+  const currentRoomId = currentRoom?.id || currentRoom?.room_id;
+  const initialStudentId = initialStudent?.id || initialStudent?.student_id;
 
   // Load master data when modal opens
   useEffect(() => {
@@ -90,60 +94,89 @@ export default function RaiseDoubtModal({
           }
         });
 
-        // Also if currentExam is provided and not in examData
-        let combinedExams = [...examData];
-        if (currentExam && (currentExam.id || currentExam.exam_id)) {
-          const cExId = currentExam.id || currentExam.exam_id;
-          if (!combinedExams.some(e => String(e.id) === String(cExId))) {
-            combinedExams = [{
-              id: cExId,
-              exam_name: currentExam.exam_name || currentExam.name || 'Current Exam',
-              course_code: currentExam.course_code || '',
-              course_coordinator_id: currentExam.course_coordinator_id || null
-            }, ...combinedExams];
+        // Ensure currentRoom is in rooms list
+        let finalRooms = [...roomData];
+        const cRoomId = currentRoomId;
+        if (cRoomId) {
+          const exists = finalRooms.some(r => String(r.id) === String(cRoomId));
+          if (!exists) {
+            finalRooms.unshift({
+              id: cRoomId,
+              room_number: currentRoom?.room_number || currentRoom?.name || cRoomId,
+              building: currentRoom?.building || ''
+            });
           }
         }
+        setRooms(finalRooms);
 
-        setExams(combinedExams);
-        setRooms(roomData);
+        // Ensure currentExam is in exams list
+        let finalExams = [...examData];
+        const cExamId = currentExamId;
+        if (cExamId) {
+          const exists = finalExams.some(e => String(e.id) === String(cExamId));
+          if (!exists) {
+            finalExams.unshift({
+              id: cExamId,
+              exam_name: currentExam?.exam_name || currentExam?.name || `Exam #${cExamId}`,
+              course_code: currentExam?.course_code || '',
+              course_coordinator_id: currentExam?.course_coordinator_id
+            });
+          }
+        }
+        setExams(finalExams);
+
         setFacultyList(facData);
-        setStudents(combinedStudents);
 
-        // Pre-select defaults
-        const defaultExamId = currentExam?.id || currentExam?.exam_id || (combinedExams[0] ? combinedExams[0].id : '');
-        const defaultRoomId = currentRoom?.id || currentRoom?.room_id || (roomData[0] ? roomData[0].id : '');
-        const selectedExam = combinedExams.find(e => String(e.id) === String(defaultExamId));
-        
-        let designatedFaculty = null;
-        if (selectedExam?.course_coordinator_id) {
-          designatedFaculty = facData.find(f => Number(f.id) === Number(selectedExam.course_coordinator_id));
+        // Prioritize classroom students if available, then fallback to master students
+        let finalStudents = [];
+        if (classroomStudents && classroomStudents.length > 0) {
+          finalStudents = classroomStudents.map(st => ({
+            id: st.student_id || st.id,
+            name: st.student_name || st.name,
+            enrollment_no: st.enrollment_no || st.student_roll || '',
+            department: st.student_department || st.department || '',
+            seat_number: st.seat_number || ''
+          }));
+        } else {
+          finalStudents = studData;
         }
-        if (!designatedFaculty && selectedExam?.course_department) {
-          designatedFaculty = facData.find(f => f.department === selectedExam.course_department);
-        }
-        if (!designatedFaculty && facData.length > 0) {
-          designatedFaculty = facData[0];
-        }
+        setStudents(finalStudents);
 
-        const defaultFacultyId = designatedFaculty ? designatedFaculty.id : '';
+        // Pre-select defaults matching this invigilator's duty!
+        const defaultExamId = String(cExamId || (finalExams[0] ? finalExams[0].id : ''));
+        const defaultRoomId = String(cRoomId || (finalRooms[0] ? finalRooms[0].id : ''));
+
+        // Find the selected exam object to locate the designated course instructor
+        const selectedExam = finalExams.find(e => String(e.id) === String(defaultExamId));
+
+        // Resolve invigilator info so the invigilator is never confused with the recipient subject faculty
+        const currentInvigId = invigilatorUser?.faculty_id || invigilatorUser?.facultyId || invigilatorUser?.id;
+        const currentInvigName = invigilatorUser?.name || '';
+        const eligibleFaculty = facData.filter(f => 
+          (!currentInvigId || Number(f.id) !== Number(currentInvigId)) &&
+          (!currentInvigName || f.name?.toLowerCase() !== currentInvigName.toLowerCase())
+        );
+
+        // Find designated course instructor for this exam
+        const designatedFaculty = eligibleFaculty.find(f => 
+          (selectedExam?.course_coordinator_id && Number(f.id) === Number(selectedExam.course_coordinator_id)) ||
+          (selectedExam?.course_coordinator_name && f.name?.toLowerCase() === selectedExam.course_coordinator_name?.toLowerCase())
+        ) || eligibleFaculty.find(f => 
+          selectedExam?.department && f.department === selectedExam.department
+        ) || eligibleFaculty[0] || facData[0];
+
+        const defaultFacultyId = designatedFaculty ? String(designatedFaculty.id) : '';
         const defaultRecipientEmail = designatedFaculty?.email || '';
 
-        let defaultStudentId = 'GENERAL';
-        let defaultStudentRoll = 'GENERAL';
-        let defaultStudentName = 'General Room Question';
-
-        if (initialStudent) {
-          defaultStudentId = String(initialStudent.id || initialStudent.student_id || 'GENERAL');
-          defaultStudentRoll = initialStudent.enrollment_no || initialStudent.student_roll || '';
-          defaultStudentName = initialStudent.name || initialStudent.student_name || '';
-        }
+        // Pre-select student: initialStudent > first classroom student > first master student
+        const defaultStudent = initialStudent || finalStudents[0] || null;
 
         setFormData({
           examId: defaultExamId,
           roomId: defaultRoomId,
-          studentId: defaultStudentId,
-          studentRoll: defaultStudentRoll,
-          studentName: defaultStudentName,
+          studentId: defaultStudent ? String(defaultStudent.id || defaultStudent.student_id) : '',
+          studentRoll: defaultStudent ? (defaultStudent.enrollment_no || defaultStudent.student_roll || '') : '',
+          studentName: defaultStudent ? (defaultStudent.name || defaultStudent.student_name || '') : '',
           facultyId: defaultFacultyId,
           recipientEmail: defaultRecipientEmail,
           urgency: 'HIGH',
@@ -157,12 +190,7 @@ export default function RaiseDoubtModal({
     };
 
     loadPrerequisites();
-  }, [
-    isOpen, 
-    currentExam?.id || currentExam?.exam_id, 
-    currentRoom?.id || currentRoom?.room_id, 
-    initialStudent?.id || initialStudent?.student_id
-  ]);
+  }, [isOpen, currentExamId, currentRoomId, initialStudentId]);
 
   // When student selection changes
   const handleStudentSelect = (studentId) => {
@@ -187,31 +215,33 @@ export default function RaiseDoubtModal({
   // When exam selection changes, auto-route to designated course instructor & pre-fill email
   const handleExamChange = (newExamId) => {
     const selected = exams.find(e => String(e.id) === String(newExamId));
-    let targetFac = null;
-    if (selected?.course_coordinator_id) {
-      targetFac = facultyList.find(f => Number(f.id) === Number(selected.course_coordinator_id));
-    }
-    if (!targetFac && selected?.course_department) {
-      targetFac = facultyList.find(f => f.department === selected.course_department);
-    }
-    if (!targetFac && facultyList.length > 0) {
-      targetFac = facultyList[0];
-    }
+    const currentInvigId = invigilatorUser?.faculty_id || invigilatorUser?.facultyId || invigilatorUser?.id;
+    const currentInvigName = invigilatorUser?.name || '';
+    const eligibleFaculty = facultyList.filter(f => 
+      (!currentInvigId || Number(f.id) !== Number(currentInvigId)) &&
+      (!currentInvigName || f.name?.toLowerCase() !== currentInvigName.toLowerCase())
+    );
+
+    const targetFac = eligibleFaculty.find(f => 
+      (selected?.course_coordinator_id && Number(f.id) === Number(selected.course_coordinator_id)) ||
+      (selected?.course_coordinator_name && f.name?.toLowerCase() === selected.course_coordinator_name?.toLowerCase())
+    ) || eligibleFaculty.find(f => selected?.department && f.department === selected.department) || eligibleFaculty[0] || facultyList[0];
+
     setFormData(prev => ({
       ...prev,
       examId: newExamId,
-      facultyId: targetFac ? targetFac.id : prev.facultyId,
+      facultyId: targetFac ? String(targetFac.id) : prev.facultyId,
       recipientEmail: targetFac?.email || prev.recipientEmail
     }));
   };
 
   // When faculty selection changes, update recipient email accordingly
   const handleFacultySelect = (newFacultyId) => {
-    const targetFac = facultyList.find(f => String(f.id) === String(newFacultyId));
+    const target = facultyList.find(f => String(f.id) === String(newFacultyId));
     setFormData(prev => ({
       ...prev,
       facultyId: newFacultyId,
-      recipientEmail: targetFac?.email || prev.recipientEmail
+      recipientEmail: target ? target.email : prev.recipientEmail
     }));
   };
 
@@ -232,17 +262,26 @@ export default function RaiseDoubtModal({
       const roomObj = rooms.find(r => String(r.id) === String(formData.roomId));
       const examObj = exams.find(e => String(e.id) === String(formData.examId));
       const roomStr = roomObj?.room_number || currentRoom?.room_number || 'Exam Hall';
-      const emailSubject = `[ExamSphere URGENT] Question Paper Doubt in Room ${roomStr}`;
-      const emailBody = `Urgent Student Doubt: ${formData.questionText.trim()}\n\nExam: ${examObj?.exam_name || 'Exam'}\nInvigilator: ${invigilatorUser?.name || 'Room Invigilator'}\nRequired Location: Please visit Room ${roomStr} immediately to address this question.`;
+      const actualInvigilatorName = invigilatorUser?.name || 'Room Invigilator';
+      const actualInvigilatorId = invigilatorUser?.faculty_id || invigilatorUser?.facultyId || invigilatorUser?.id || null;
+      const urgencyLabels = {
+        CRITICAL: 'CRITICAL (Blocking Paper)',
+        HIGH: 'HIGH (Question Ambiguity)',
+        NORMAL: 'NORMAL (Clarification)'
+      };
+      const urgencyLabel = urgencyLabels[formData.urgency] || formData.urgency || 'HIGH';
+      const emailSubject = `Question Paper Doubt in Room ${roomStr}`;
+      const emailBody = `Priority / Urgency: ${urgencyLabel}\nStudent Doubt: ${formData.questionText.trim()}\n\nExam: ${examObj?.exam_name || 'Exam'}\nInvigilator: ${actualInvigilatorName}\nRequired Location: Please visit Room ${roomStr} immediately to address this question.`;
 
       try {
         await emailService.sendDoubtNotification({
           recipientEmail: targetEmail,
-          facultyName: targetEmail.split('@')[0],
+          facultyName: '',
           roomNumber: roomStr,
           examName: examObj?.exam_name || 'Scheduled Examination',
-          invigilatorName: invigilatorUser?.name || 'Exam Invigilator',
+          invigilatorName: actualInvigilatorName,
           questionText: formData.questionText.trim(),
+          urgency: urgencyLabel,
           subject: emailSubject,
           message: emailBody
         });
@@ -262,8 +301,8 @@ export default function RaiseDoubtModal({
         recipientEmail: targetEmail,
         questionText: formData.questionText.trim(),
         urgency: formData.urgency,
-        invigilatorId: invigilatorUser?.faculty_id || invigilatorUser?.id || null,
-        invigilatorName: invigilatorUser?.name || 'Room Invigilator'
+        invigilatorId: actualInvigilatorId,
+        invigilatorName: actualInvigilatorName
       };
 
       const res = await api.createDoubtRequest(payload);
@@ -488,16 +527,11 @@ export default function RaiseDoubtModal({
                   fontSize: '0.85rem'
                 }}
               >
-                <option value="GENERAL">📢 General Room Question (Entire Classroom / Paper Ambiguity)</option>
-                {students.length > 0 && (
-                  <optgroup label="Room Candidates (Select if specific student)">
-                    {students.map(s => (
-                      <option key={s.id} value={s.id}>
-                        👤 {s.name} ({s.enrollment_no || 'No ID'}) {s.seat_number ? `· Seat ${s.seat_number}` : ''} {s.department ? `· ${s.department}` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
+                {students.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.enrollment_no}{s.seat_number ? ` • Seat ${s.seat_number}` : ''}{s.department ? ` • ${s.department}` : ''})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -546,16 +580,20 @@ export default function RaiseDoubtModal({
                 fontSize: '0.85rem'
               }}
             >
-              <option value="">-- Select Subject Faculty Recipient --</option>
-              {facultyList.map(f => {
-                const currentExamObj = exams.find(e => String(e.id) === String(formData.examId));
-                const isInstructor = currentExamObj && (Number(currentExamObj.course_coordinator_id) === Number(f.id));
-                return (
-                  <option key={f.id} value={f.id}>
-                    {f.name} — {f.email} ({f.department}) {isInstructor ? '⭐ (Designated Course Instructor)' : ''}
-                  </option>
-                );
-              })}
+              {facultyList
+                .filter(f => {
+                  const currentInvigId = invigilatorUser?.faculty_id || invigilatorUser?.facultyId || invigilatorUser?.id;
+                  return !currentInvigId || Number(f.id) !== Number(currentInvigId);
+                })
+                .map(f => {
+                  const currentExamObj = exams.find(e => String(e.id) === String(formData.examId));
+                  const isInstructor = currentExamObj && (Number(currentExamObj.course_coordinator_id) === Number(f.id));
+                  return (
+                    <option key={f.id} value={f.id}>
+                      {f.name} — {f.email} ({f.department}) {isInstructor ? '⭐ (Designated Course Instructor)' : ''}
+                    </option>
+                  );
+                })}
             </select>
           </div>
 

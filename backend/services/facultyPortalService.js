@@ -540,8 +540,26 @@ class FacultyPortalService {
 
     // 3. Resolve invigilator name
     let senderInvigilatorName = invigilatorName;
-    if (!senderInvigilatorName && invigilatorId) {
-      const [invRow] = await query('SELECT name FROM faculty WHERE id = ?', [invigilatorId]);
+    let resolvedInvigilatorId = invigilatorId;
+
+    // If invigilator was not supplied or matched target faculty, look up the assigned invigilator for this exam & room
+    if (!senderInvigilatorName || (resolvedInvigilatorId && Number(resolvedInvigilatorId) === Number(facultyId))) {
+      const [dutyMatch] = await query(
+        `SELECT id.faculty_id, f.name 
+         FROM invigilation_duties id 
+         JOIN faculty f ON id.faculty_id = f.id 
+         WHERE id.exam_id = ? AND id.room_id = ? 
+         LIMIT 1`,
+        [examId, roomId]
+      );
+      if (dutyMatch.length > 0 && Number(dutyMatch[0].faculty_id) !== Number(facultyId)) {
+        resolvedInvigilatorId = dutyMatch[0].faculty_id;
+        senderInvigilatorName = dutyMatch[0].name;
+      }
+    }
+
+    if (!senderInvigilatorName && resolvedInvigilatorId) {
+      const [invRow] = await query('SELECT name FROM faculty WHERE id = ?', [resolvedInvigilatorId]);
       if (invRow.length > 0) senderInvigilatorName = invRow[0].name;
     }
     if (!senderInvigilatorName) {
@@ -552,9 +570,9 @@ class FacultyPortalService {
     const cleanUrgency = ['NORMAL', 'HIGH', 'CRITICAL'].includes(urgency) ? urgency : 'HIGH';
     const [insertResult] = await query(
       `INSERT INTO doubt_requests 
-       (exam_id, room_id, student_id, student_name, student_roll, faculty_id, invigilator_id, invigilator_name, question_text, status, urgency, email_sent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, TRUE)`,
-      [examId, roomId, resolvedStudentId, resolvedStudentName, resolvedStudentRoll, facultyId, invigilatorId || null, senderInvigilatorName, questionText.trim(), cleanUrgency]
+       (exam_id, room_id, student_id, faculty_id, invigilator_id, invigilator_name, question_text, status, urgency, email_sent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, TRUE)`,
+      [examId, roomId, resolvedStudentId, facultyId, resolvedInvigilatorId || null, senderInvigilatorName, questionText.trim(), cleanUrgency]
     );
 
     const doubtId = insertResult.insertId;
@@ -568,8 +586,7 @@ class FacultyPortalService {
       courseCode: examDetails.course_code,
       invigilatorName: senderInvigilatorName,
       questionText: questionText.trim(),
-      studentName: resolvedStudentName,
-      studentRoll: resolvedStudentRoll
+      urgency: urgency || 'HIGH'
     });
 
     const emailSubject = emailData.subject;
@@ -588,6 +605,7 @@ class FacultyPortalService {
         facultyName: targetFaculty.name,
         examName: examDetails.exam_name,
         courseCode: examDetails.course_code || '',
+        senderName: senderInvigilatorName,
         channel: 'DOUBT_SUPPORT'
       });
     } catch (mailErr) {
@@ -765,7 +783,6 @@ class FacultyPortalService {
     const emailSubject = subject?.trim() || `URGENT: Visit Room ${roomNumber.trim()} - Faculty Examination Request`;
     
     const emailText = `
-URGENT: VISIT ROOM ${roomNumber.trim()} FOR EXAMINATION CONSULTATION
 
 Dear ${recipientName},
 
@@ -780,7 +797,7 @@ Sender:        ${senderName} (${senderEmail})
 Message:       "${message?.trim() || 'Please visit the examination hall immediately.'}"
 
 Action Required: Please proceed directly to Room ${roomNumber.trim()}.
-============================================================
+
 ExamSphere Automated Examination Controller
     `.trim();
 

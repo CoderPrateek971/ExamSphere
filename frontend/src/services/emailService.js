@@ -288,15 +288,15 @@ export const emailService = {
     const config = this.getConfig('DOUBT_SUPPORT');
 
     const recipient = params.recipientEmail || params.to_email || params.email;
-    const facultyName = params.facultyName || params.to_name || 'Faculty Member';
+    const facultyName = params.facultyName || params.to_name || '';
     const roomNumber = params.roomNumber || params.room_number || 'Exam Hall';
     const examName = params.examName || params.exam_name || 'Ongoing Examination';
     const invigilatorName = params.invigilatorName || params.from_name || 'Hall Invigilator';
     const questionText = params.questionText || params.question || params.message || 'Student clarification required';
-    const currentTime = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    const urgency = params.urgency || params.priority || 'HIGH';
 
-    const emailSubject = params.subject || `[ExamSphere URGENT] Question Paper Doubt in Room ${roomNumber}`;
-    const emailBody = params.message || `Urgent Student Doubt: "${questionText}"\n\nExam: ${examName}\nInvigilator: ${invigilatorName}\nRequired Location: Please visit Room ${roomNumber} immediately to address this question.`;
+    const emailSubject = params.subject || `Question Paper Doubt in Room ${roomNumber}`;
+    const emailBody = params.message || `Priority / Urgency: ${urgency}\nStudent Doubt: "${questionText}"\n\nExam: ${examName}\nInvigilator: ${invigilatorName}\nRequired Location: Please visit Room ${roomNumber} immediately to address this question.`;
 
     const templateParams = {
       from_name: invigilatorName,
@@ -306,12 +306,14 @@ export const emailService = {
       recipient_email: recipient,
       email: recipient,
       user_email: recipient,
-      name: facultyName,
+      name: '',
       title: emailSubject,
       subject: emailSubject,
-      time: currentTime,
-      date: new Date().toLocaleDateString('en-US'),
+      time: '',
+      date: '',
       message: emailBody,
+      priority: urgency,
+      urgency: urgency,
       doubt_text: questionText,
       question_text: questionText,
       room_number: roomNumber,
@@ -319,8 +321,7 @@ export const emailService = {
       exam_name: examName,
       exam: examName,
       course_code: params.courseCode || 'EXAM',
-      invigilator_name: invigilatorName,
-      urgency: 'HIGH'
+      invigilator_name: invigilatorName
     };
 
     if (this.isConfigured('DOUBT_SUPPORT')) {

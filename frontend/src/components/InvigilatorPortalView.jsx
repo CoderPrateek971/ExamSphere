@@ -1658,10 +1658,24 @@ export default function InvigilatorPortalView({ user }) {
           showToast('Student doubt submitted and email alert dispatched to subject faculty!');
         }}
         currentExam={dutyDetails ? { id: dutyDetails.exam_id, exam_name: dutyDetails.exam_name, course_code: dutyDetails.course_code } : selectedDuty}
-        currentRoom={dutyDetails ? { id: dutyDetails.room_id, room_number: dutyDetails.room_number, building: dutyDetails.building } : selectedDuty}
-        roomStudents={students}
-        invigilatorUser={user}
+        currentRoom={(() => {
+          const activeRoomId = selectedRoomId || dutyDetails?.room_id || selectedDuty?.room_id;
+          const roomObj = examRooms.find(r => Number(r.room_id) === Number(activeRoomId));
+          return roomObj
+            ? { id: roomObj.room_id, room_number: roomObj.room_number, building: roomObj.building }
+            : dutyDetails
+              ? { id: dutyDetails.room_id, room_number: dutyDetails.room_number, building: dutyDetails.building }
+              : selectedDuty
+                ? { id: selectedDuty.room_id, room_number: selectedDuty.room_number, building: selectedDuty.building }
+                : null;
+        })()}
+        invigilatorUser={{
+          ...user,
+          name: dutyDetails?.invigilator_name || dutyDetails?.faculty_name || selectedDuty?.faculty_name || selectedDuty?.teacher_name || user?.name || 'Exam Hall Invigilator',
+          faculty_id: dutyDetails?.faculty_id || selectedDuty?.faculty_id || user?.faculty_id || user?.id
+        }}
         initialStudent={doubtStudent}
+        classroomStudents={students}
       />
     </div>
   );

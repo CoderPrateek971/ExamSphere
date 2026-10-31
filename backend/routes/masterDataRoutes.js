@@ -22,29 +22,37 @@ const {
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 const { uploadCSV } = require('../middleware/uploadMiddleware');
 
-// All master data endpoints require authentication
+// Authentication required for all master data endpoints
 router.use(verifyToken);
 
-// Read endpoints: accessible by ADMIN and FACULTY (needed for live room/doubt/duty routing)
+// Read-only master data endpoints accessible by ADMIN and FACULTY (for doubt routing, invigilation duties, substitute assignments)
 router.get('/students', requireRole('ADMIN', 'FACULTY'), getStudents);
 router.get('/faculty', requireRole('ADMIN', 'FACULTY'), getFaculty);
 router.get('/courses', requireRole('ADMIN', 'FACULTY'), getCourses);
 router.get('/rooms', requireRole('ADMIN', 'FACULTY'), getRooms);
 
-// Students mutating endpoints: strictly ADMIN
-router.post('/students', requireRole('ADMIN'), createStudent);
-router.put('/students/:id', requireRole('ADMIN'), updateStudent);
-router.delete('/students/:id', requireRole('ADMIN'), deleteStudent);
+// All mutations, creation, deletions, uploads, and wipes strictly require ADMIN role
+router.use(requireRole('ADMIN'));
 
-// Faculty mutating endpoints: strictly ADMIN
-router.post('/faculty', requireRole('ADMIN'), createFaculty);
-router.put('/faculty/:id', requireRole('ADMIN'), updateFaculty);
-router.delete('/faculty/:id', requireRole('ADMIN'), deleteFaculty);
+// Students
+router.post('/students', createStudent);
+router.put('/students/:id', updateStudent);
+router.delete('/students/:id', deleteStudent);
 
-// Courses mutating endpoints: strictly ADMIN
-router.post('/courses', requireRole('ADMIN'), createCourse);
-router.put('/courses/:id', requireRole('ADMIN'), updateCourse);
-router.delete('/courses/:id', requireRole('ADMIN'), deleteCourse);
+// Faculty
+router.post('/faculty', createFaculty);
+router.put('/faculty/:id', updateFaculty);
+router.delete('/faculty/:id', deleteFaculty);
+
+// Courses
+router.post('/courses', createCourse);
+router.put('/courses/:id', updateCourse);
+router.delete('/courses/:id', deleteCourse);
+
+// Rooms
+router.post('/rooms', createRoom);
+router.put('/rooms/:id', updateRoom);
+router.delete('/rooms/:id', deleteRoom);
 
 // Rooms mutating endpoints: strictly ADMIN
 router.post('/rooms', requireRole('ADMIN'), createRoom);
