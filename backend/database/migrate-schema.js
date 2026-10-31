@@ -63,41 +63,7 @@ async function runMigration() {
     )
   `);
 
-  // 7. Seed Demo Faculty Accounts
-  try {
-    const { hashPassword } = require('../utils/passwordHelper');
-    const facultyPasswordHash = await hashPassword('faculty123');
-    const demoAccounts = [
-      { email: 'faculty@examsphere.edu', name: 'Dr. Shilpa Mahajan', code: 'FAC-SM-01', dept: 'CSE', desig: 'Professor' },
-      { email: 'nishtha.gupta.24cse@bmu.edu.in', name: 'Prof. Nishtha Gupta', code: 'FAC-NG-01', dept: 'CSE', desig: 'Assistant Professor' },
-      { email: 'prateek.garg.24cse@bmu.edu.in', name: 'Prof. Prateek Garg', code: 'FAC-PG-02', dept: 'CSE', desig: 'Associate Professor' },
-      { email: 'riwan.bhati.24cse@bmu.edu.in', name: 'Prof. Riwan Bhati', code: 'FAC-RB-03', dept: 'CSE', desig: 'Assistant Professor' },
-      { email: 'nischay.mehta.24cse@bmu.edu.in', name: 'Prof. Nischay Mehta', code: 'FAC-NM-04', dept: 'CSE', desig: 'Assistant Professor' },
-      { email: 'invigilator@examsphere.edu', name: 'Demo Invigilator', code: 'INV001', dept: 'CSE', desig: 'Exam Invigilator' }
-    ];
-
-    for (const a of demoAccounts) {
-      await query(
-        `INSERT INTO users (name, email, password_hash, role)
-         VALUES (?, ?, ?, 'FACULTY')
-         ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)`,
-        [a.name, a.email, facultyPasswordHash]
-      );
-      const [uRows] = await query('SELECT id FROM users WHERE email = ?', [a.email]);
-      const uId = uRows[0]?.id;
-      if (uId) {
-        await query(
-          `INSERT INTO faculty (user_id, faculty_code, name, email, department, designation)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), faculty_code = VALUES(faculty_code)`,
-          [uId, a.code, a.name, a.email, a.dept, a.desig]
-        );
-      }
-    }
-    console.log('✅ Demo faculty accounts verified/seeded.');
-  } catch (seedErr) {
-    console.warn('Demo faculty seed notice:', seedErr.message);
-  }
+  // 7. Demo Faculty accounts seeding removed
 
   // 8. Ensure all Courses are mapped to Department Faculty Instructors
   try {
