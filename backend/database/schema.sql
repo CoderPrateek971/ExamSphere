@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS students (
     batch_year VARCHAR(20) DEFAULT '2025',       -- e.g., '2023', '2024', '2025'
     semester INT DEFAULT 1,
     program VARCHAR(50) DEFAULT 'B.Tech',
+    enrolled_courses TEXT NULL,
     is_repeat_student BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL

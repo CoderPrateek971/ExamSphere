@@ -20,24 +20,45 @@ class MasterDataService {
     return rows;
   }
 
-  async createStudent({ enrollment_no, name, email, department, semester, program }) {
+  async createStudent({ enrollment_no, name, email, department, semester, program, enrolled_courses }) {
     if (!enrollment_no || !name || !email || !department) {
       const err = new Error('enrollment_no, name, email, department are required.');
       err.statusCode = 400;
       throw err;
     }
+    const enrolledStr = enrolled_courses || '';
     const [result] = await query(
-      'INSERT INTO students (enrollment_no, name, email, department, semester, program) VALUES (?, ?, ?, ?, ?, ?)',
-      [enrollment_no, name, email, department, semester || 1, program || 'B.Tech']
+      'INSERT INTO students (enrollment_no, name, email, department, semester, program, enrolled_courses) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [enrollment_no, name, email, department, semester || 1, program || 'B.Tech', enrolledStr]
     );
-    return result.insertId;
+    const studentId = result.insertId;
+    if (enrolledStr && studentId) {
+      const courseCodes = enrolledStr.split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+      for (const code of courseCodes) {
+        let [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+        if (course) {
+          await query('INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)', [studentId, course.id]);
+        }
+      }
+    }
+    return studentId;
   }
 
-  async updateStudent(id, { name, email, department, semester, program }) {
+  async updateStudent(id, { name, email, department, semester, program, enrolled_courses }) {
     await query(
-      'UPDATE students SET name = ?, email = ?, department = ?, semester = ?, program = ? WHERE id = ?',
-      [name, email, department, semester, program, id]
+      'UPDATE students SET name = ?, email = ?, department = ?, semester = ?, program = ?, enrolled_courses = COALESCE(?, enrolled_courses) WHERE id = ?',
+      [name, email, department, semester, program, enrolled_courses !== undefined ? enrolled_courses : null, id]
     );
+    if (enrolled_courses !== undefined) {
+      await query('DELETE FROM student_courses WHERE student_id = ?', [id]);
+      const courseCodes = (enrolled_courses || '').split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+      for (const code of courseCodes) {
+        let [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+        if (course) {
+          await query('INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)', [id, course.id]);
+        }
+      }
+    }
     return true;
   }
 

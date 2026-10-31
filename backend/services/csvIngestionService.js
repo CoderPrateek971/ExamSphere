@@ -25,11 +25,18 @@ const INGESTION_STRATEGIES = {
     let count = 0;
     for (const row of rows) {
       const finalSemester = parseSemester(row.semester || row.sem || row.term || row.stream_section || row.batch);
+      const enrolledStr = row.enrolled_courses || row.enrolled_subjects || '';
       const [result] = await query(
-        `INSERT INTO students (enrollment_no, name, email, department, semester, program)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), department = VALUES(department), semester = VALUES(semester), program = VALUES(program)`,
-        [row.enrollment_no, row.name, row.email, row.department || 'CSE', finalSemester, row.program || 'B.Tech']
+        `INSERT INTO students (enrollment_no, name, email, department, semester, program, enrolled_courses)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+           name = VALUES(name), 
+           email = VALUES(email), 
+           department = VALUES(department), 
+           semester = VALUES(semester), 
+           program = VALUES(program),
+           enrolled_courses = VALUES(enrolled_courses)`,
+        [row.enrollment_no, row.name, row.email, row.department || 'CSE', finalSemester, row.program || 'B.Tech', enrolledStr]
       );
 
       // Resolve student id
@@ -40,15 +47,26 @@ const INGESTION_STRATEGIES = {
       }
 
       // Link enrolled subjects into student_courses junction table
-      const enrolledStr = row.enrolled_courses || row.enrolled_subjects || '';
       if (enrolledStr && studentId) {
         const courseCodes = enrolledStr.split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
         for (const code of courseCodes) {
-          const [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
-          if (course) {
+          let [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+          let courseId = course?.id;
+          if (!courseId) {
+            const [cRes] = await query(
+              'INSERT INTO courses (course_code, course_name, department, semester, difficulty_level) VALUES (?, ?, ?, ?, 3) ON DUPLICATE KEY UPDATE course_code = course_code',
+              [code, `${code} Course`, row.department || 'CSE', finalSemester || 1]
+            );
+            courseId = cRes.insertId;
+            if (!courseId) {
+              const [[cFound]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+              courseId = cFound?.id;
+            }
+          }
+          if (courseId) {
             await query(
               'INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)',
-              [studentId, course.id]
+              [studentId, courseId]
             );
           }
         }
@@ -71,8 +89,14 @@ const INGESTION_STRATEGIES = {
       await query(
         `INSERT INTO faculty (faculty_code, name, email, department, designation, seniority_level, max_duties)
          VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), department = VALUES(department), designation = VALUES(designation), seniority_level = VALUES(seniority_level), max_duties = VALUES(max_duties)`,
-        [row.faculty_code, row.name, row.email, row.department, designation, seniorityLevel, extractNumber(row.max_duties, 5)]
+         ON DUPLICATE KEY UPDATE 
+           name = VALUES(name), 
+           email = VALUES(email), 
+           department = VALUES(department), 
+           designation = VALUES(designation), 
+           seniority_level = VALUES(seniority_level), 
+           max_duties = VALUES(max_duties)`,
+        [row.faculty_code, row.name, row.email, row.department || 'SOET', designation, seniorityLevel, extractNumber(row.max_duties, 5)]
       );
       count++;
     }
@@ -83,28 +107,21 @@ const INGESTION_STRATEGIES = {
     let count = 0;
     for (const row of rows) {
       const sem = parseSemester(row.semester || row.sem || row.term || row.target_batch);
+      const difficulty = extractNumber(row.difficulty_level, 3);
       await query(
-        `INSERT INTO courses (course_code, course_name, department, semester, eligible_branches, credits, target_batch, course_coordinator_name, difficulty_level)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO courses (course_code, course_name, department, semester, difficulty_level)
+         VALUES (?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE 
             course_name = VALUES(course_name), 
             department = VALUES(department), 
             semester = VALUES(semester),
-            eligible_branches = COALESCE(VALUES(eligible_branches), eligible_branches),
-            credits = COALESCE(VALUES(credits), credits),
-            target_batch = COALESCE(VALUES(target_batch), target_batch),
-            course_coordinator_name = COALESCE(VALUES(course_coordinator_name), course_coordinator_name),
             difficulty_level = VALUES(difficulty_level)`,
         [
-          row.course_code,
-          row.course_name,
-          row.department || 'CSE',
+          row.course_code.trim().toUpperCase(),
+          row.course_name.trim(),
+          row.department.trim(),
           sem,
-          row.eligible_branches || row.department || 'CSE',
-          parseFloat(row.credits) || 3.0,
-          row.target_batch || null,
-          row.course_coordinator_name || null,
-          parseInt(row.difficulty_level, 10) || 3
+          difficulty
         ]
       );
       count++;
@@ -121,8 +138,12 @@ const INGESTION_STRATEGIES = {
       await query(
         `INSERT INTO rooms (room_number, building, capacity, rows_count, cols_count)
          VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE building = VALUES(building), capacity = VALUES(capacity), rows_count = VALUES(rows_count), cols_count = VALUES(cols_count)`,
-        [row.room_number, row.building, capacity, rowsCount, colsCount]
+         ON DUPLICATE KEY UPDATE 
+           building = VALUES(building), 
+           capacity = VALUES(capacity), 
+           rows_count = VALUES(rows_count), 
+           cols_count = VALUES(cols_count)`,
+        [row.room_number.trim(), row.building.trim(), capacity, rowsCount, colsCount]
       );
       count++;
     }
@@ -188,7 +209,9 @@ class SpreadsheetIngestionService {
   async ingestSpreadsheet(filePath, entityType) {
     const strategy = INGESTION_STRATEGIES[entityType];
     if (!strategy) {
-      throw new Error(`Unsupported entity type: ${entityType}. Supported: students, faculty, courses, rooms, master-sheet.`);
+      const err = new Error(`Unsupported entity type: ${entityType}. Supported: students, faculty, courses, rooms, master-sheet.`);
+      err.statusCode = 400;
+      throw err;
     }
 
     try {
@@ -206,6 +229,22 @@ class SpreadsheetIngestionService {
       }
 
       const { validRows, errorRows } = await parseAndValidateSpreadsheet(filePath, entityType);
+
+      // If no valid rows could be parsed and there are error rows, throw the missing required field error!
+      if (validRows.length === 0 && errorRows.length > 0) {
+        const firstError = errorRows[0].error;
+        const err = new Error(firstError);
+        err.statusCode = 400;
+        err.errors = errorRows;
+        throw err;
+      }
+
+      if (validRows.length === 0 && errorRows.length === 0) {
+        const err = new Error('The uploaded file contains no data rows.');
+        err.statusCode = 400;
+        throw err;
+      }
+
       const insertedCount = await strategy(validRows);
 
       return {
@@ -215,8 +254,8 @@ class SpreadsheetIngestionService {
         errors: errorRows
       };
     } finally {
-      // Defensive file cleanup
-      if (fs.existsSync(filePath)) {
+      // Defensive file cleanup (only if temp upload file, avoid deleting project files)
+      if (filePath && filePath.includes('uploads') && fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
         } catch {

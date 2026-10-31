@@ -439,7 +439,8 @@ class InvigilatorService {
     // 1. Fetch all exams for filter dropdown
     const [exams] = await query(`
       SELECT e.id, e.exam_name, e.exam_date, e.start_time, e.end_time,
-             c.course_code, c.course_name, c.department as course_dept
+             c.course_code, c.course_name, c.department as course_dept,
+             (SELECT COUNT(*) FROM student_courses WHERE course_id = c.id) as enrolled_count
       FROM exams e
       JOIN courses c ON e.course_id = c.id
       ORDER BY e.exam_date ASC, e.id ASC
@@ -524,20 +525,25 @@ class InvigilatorService {
     const [records] = await query(sql, params);
 
     // Compute stats
-    const totalStudents = records.length;
+    const totalRegistrations = records.length;
+    const uniqueStudentSet = new Set(records.map(r => r.student_id));
+    const uniqueStudents = uniqueStudentSet.size;
+
     const presentCount = records.filter(r => r.attendance_status === 'PRESENT').length;
     const absentCount = records.filter(r => r.attendance_status === 'ABSENT').length;
     const flaggedCount = records.filter(r => r.attendance_status === 'FLAGGED').length;
     const unverifiedCount = records.filter(r => r.attendance_status === 'UNVERIFIED').length;
     const faceVerifiedCount = records.filter(r => !!r.photo_path || r.verification_method === 'FACE_MATCH').length;
-    const attendanceRate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
+    const attendanceRate = totalRegistrations > 0 ? Math.round((presentCount / totalRegistrations) * 100) : 0;
 
     return {
       exams,
       rooms,
       records,
       stats: {
-        totalStudents,
+        totalStudents: totalRegistrations,
+        totalRegistrations,
+        uniqueStudents,
         presentCount,
         absentCount,
         flaggedCount,
