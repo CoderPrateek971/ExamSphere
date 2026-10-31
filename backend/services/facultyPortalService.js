@@ -69,73 +69,8 @@ class FacultyPortalService {
    * - nischay.mehta.24cse@bmu.edu.in
    */
   async ensureSampleFacultyAndDuties() {
-    try {
-      const sampleFaculty = [
-        { email: 'nishtha.gupta.24cse@bmu.edu.in', name: 'Prof. Nishtha Gupta', code: 'FAC-NG-01', dept: 'CSE' },
-        { email: 'prateek.garg.24cse@bmu.edu.in', name: 'Prof. Prateek Garg', code: 'FAC-PG-02', dept: 'CSE' },
-        { email: 'riwan.bhati.24cse@bmu.edu.in', name: 'Prof. Riwan Bhati', code: 'FAC-RB-03', dept: 'CSE' },
-        { email: 'nischay.mehta.24cse@bmu.edu.in', name: 'Prof. Nischay Mehta', code: 'FAC-NM-04', dept: 'CSE' }
-      ];
-
-      const defaultHash = await hashPassword('12345');
-
-      for (const f of sampleFaculty) {
-        const [existingUser] = await query('SELECT id FROM users WHERE email = ?', [f.email]);
-        let userId;
-        if (existingUser.length > 0) {
-          userId = existingUser[0].id;
-          await query('UPDATE users SET password_hash = ? WHERE id = ?', [defaultHash, userId]);
-        } else {
-          const [uRes] = await query(
-            'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, "FACULTY")',
-            [f.name, f.email, defaultHash]
-          );
-          userId = uRes.insertId;
-        }
-
-        const [existingFac] = await query('SELECT id FROM faculty WHERE email = ?', [f.email]);
-        if (existingFac.length === 0) {
-          await query(
-            'INSERT INTO faculty (user_id, faculty_code, name, email, department, designation, seniority_level, max_duties) VALUES (?, ?, ?, ?, ?, "Assistant Professor", 2, 8)',
-            [userId, f.code, f.name, f.email, f.dept]
-          );
-        } else {
-          await query('UPDATE faculty SET user_id = ?, name = ?, faculty_code = ? WHERE id = ?', [userId, f.name, f.code, existingFac[0].id]);
-        }
-      }
-
-      // Check if duties exist for them
-      const [facRows] = await query('SELECT id, email FROM faculty WHERE email IN (?, ?, ?, ?)', sampleFaculty.map(s => s.email));
-      const facMap = {};
-      facRows.forEach(f => { facMap[f.email] = f.id; });
-
-      const [exams] = await query('SELECT id FROM exams ORDER BY id ASC');
-      const [rooms] = await query('SELECT id FROM rooms ORDER BY id ASC');
-
-      if (exams.length > 0 && rooms.length > 0) {
-        const assignments = [
-          { email: 'nishtha.gupta.24cse@bmu.edu.in', exam_id: exams[1]?.id || exams[0].id, room_id: rooms[0].id, status: 'CONFIRMED' },
-          { email: 'nishtha.gupta.24cse@bmu.edu.in', exam_id: exams[3]?.id || exams[0].id, room_id: rooms[2]?.id || rooms[0].id, status: 'ASSIGNED' },
-          { email: 'prateek.garg.24cse@bmu.edu.in', exam_id: exams[2]?.id || exams[0].id, room_id: rooms[1]?.id || rooms[0].id, status: 'ASSIGNED' },
-          { email: 'riwan.bhati.24cse@bmu.edu.in', exam_id: exams[0].id, room_id: rooms[3]?.id || rooms[0].id, status: 'CONFIRMED' },
-          { email: 'nischay.mehta.24cse@bmu.edu.in', exam_id: exams[1]?.id || exams[0].id, room_id: rooms[1]?.id || rooms[0].id, status: 'ASSIGNED' }
-        ];
-
-        for (const a of assignments) {
-          const fId = facMap[a.email];
-          if (!fId) continue;
-          const [existingDuty] = await query('SELECT id FROM invigilation_duties WHERE exam_id = ? AND room_id = ?', [a.exam_id, a.room_id]);
-          if (existingDuty.length === 0) {
-            await query(
-              'INSERT INTO invigilation_duties (exam_id, room_id, faculty_id, status) VALUES (?, ?, ?, ?)',
-              [a.exam_id, a.room_id, fId, a.status]
-            );
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Sample faculty seed notice:', e.message);
-    }
+    // Demo faculty auto-seeding removed to keep master data clean
+    return true;
   }
 
   /**

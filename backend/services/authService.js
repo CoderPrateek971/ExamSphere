@@ -73,21 +73,11 @@ class AuthService {
     const cleanEmail = email.trim().toLowerCase();
     let [users] = await query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
 
-    // If user record doesn't exist, check if this is an established faculty or demo invigilator
+    // If user record doesn't exist, check if this is an established faculty from uploaded master data
     if (users.length === 0) {
-      const demoFacultyMap = {
-        'faculty@examsphere.edu': { name: 'Dr. Shilpa Mahajan', code: 'FAC-SM-01', dept: 'CSE', designation: 'Professor' },
-        'nishtha.gupta.24cse@bmu.edu.in': { name: 'Prof. Nishtha Gupta', code: 'FAC-NG-01', dept: 'CSE', designation: 'Assistant Professor' },
-        'prateek.garg.24cse@bmu.edu.in': { name: 'Prof. Prateek Garg', code: 'FAC-PG-02', dept: 'CSE', designation: 'Associate Professor' },
-        'riwan.bhati.24cse@bmu.edu.in': { name: 'Prof. Riwan Bhati', code: 'FAC-RB-03', dept: 'CSE', designation: 'Assistant Professor' },
-        'nischay.mehta.24cse@bmu.edu.in': { name: 'Prof. Nischay Mehta', code: 'FAC-NM-04', dept: 'CSE', designation: 'Assistant Professor' },
-        'invigilator@examsphere.edu': { name: 'Demo Invigilator', code: 'INV001', dept: 'CSE', designation: 'Exam Invigilator' }
-      };
-
       const [facMatches] = await query('SELECT * FROM faculty WHERE LOWER(email) = ?', [cleanEmail]);
-      if (facMatches.length > 0 || demoFacultyMap[cleanEmail]) {
-        const fac = facMatches[0] || demoFacultyMap[cleanEmail];
-
+      if (facMatches.length > 0) {
+        const fac = facMatches[0];
         const passToHash = password || 'faculty123';
         const passwordHash = await hashPassword(passToHash);
         const [userIns] = await query(
@@ -96,18 +86,7 @@ class AuthService {
         );
         const newUserId = userIns.insertId || (await query('SELECT id FROM users WHERE email = ?', [cleanEmail]))[0][0]?.id;
 
-        // Ensure faculty table has this record linked
-        if (facMatches.length > 0) {
-          await query('UPDATE faculty SET user_id = ? WHERE id = ?', [newUserId, fac.id]);
-        } else {
-          await query(
-            `INSERT INTO faculty (user_id, faculty_code, name, email, department, designation)
-             VALUES (?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), faculty_code = VALUES(faculty_code)`,
-            [newUserId, fac.faculty_code || fac.code, fac.name, cleanEmail, fac.department || fac.dept, fac.designation]
-          );
-        }
-
+        await query('UPDATE faculty SET user_id = ? WHERE id = ?', [newUserId, fac.id]);
         const [createdUsers] = await query('SELECT * FROM users WHERE id = ?', [newUserId]);
         users = createdUsers;
       }
