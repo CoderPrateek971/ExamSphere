@@ -1,3 +1,4 @@
+const path = require('path');
 const masterDataService = require('../services/masterDataService');
 const csvIngestionService = require('../services/csvIngestionService');
 
@@ -154,20 +155,25 @@ async function deleteRoom(req, res) {
   }
 }
 
-// ===================== BULK CSV UPLOAD =====================
+// ===================== BULK EXCEL & CSV SPREADSHEET UPLOAD =====================
 async function uploadMasterCSV(req, res) {
   if (!req.file) {
-    return res.status(400).json({ success: false, message: 'No CSV file uploaded.' });
+    return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+  }
+
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  if (ext !== '.csv') {
+    return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
   }
 
   const { entityType } = req.params;
   const filePath = req.file.path;
 
   try {
-    const summary = await csvIngestionService.ingestCSV(filePath, entityType);
+    const summary = await csvIngestionService.ingestSpreadsheet(filePath, entityType);
     return res.status(200).json({
       success: true,
-      message: `Bulk CSV ingestion completed for ${entityType}.`,
+      message: `Bulk spreadsheet ingestion completed for ${entityType}.`,
       summary
     });
   } catch (error) {

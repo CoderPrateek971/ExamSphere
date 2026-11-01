@@ -63,14 +63,47 @@ class AuthService {
   /**
    * Authenticate credentials and generate JWT token
    */
-  async loginUser({ email, password }) {
-    if (!email || !password) {
-      const err = new Error('Email and password are required.');
+  async loginUser({ email, password, role }) {
+    const trimmedEmail = email ? String(email).trim() : '';
+    const trimmedPass = password ? String(password).trim() : '';
+    if (!trimmedEmail && !trimmedPass) {
+      const err = new Error('Email and password are required');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!trimmedEmail) {
+      const err = new Error('Email is required');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!trimmedPass) {
+      const err = new Error('Password is required');
       err.statusCode = 400;
       throw err;
     }
 
-    const [users] = await query('SELECT * FROM users WHERE email = ?', [email]);
+    const cleanEmail = trimmedEmail.toLowerCase();
+    let [users] = await query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+
+    // If user record doesn't exist, check if this is an established faculty from uploaded master data
+    if (users.length === 0) {
+      const [facMatches] = await query('SELECT * FROM faculty WHERE LOWER(email) = ?', [cleanEmail]);
+      if (facMatches.length > 0) {
+        const fac = facMatches[0];
+        const defaultFacultyPass = 'faculty123';
+        const passwordHash = await hashPassword(defaultFacultyPass);
+        const [userIns] = await query(
+          'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)',
+          [fac.name, cleanEmail, passwordHash, 'FACULTY']
+        );
+        const newUserId = userIns.insertId || (await query('SELECT id FROM users WHERE email = ?', [cleanEmail]))[0][0]?.id;
+
+        await query('UPDATE faculty SET user_id = ? WHERE id = ?', [newUserId, fac.id]);
+        const [createdUsers] = await query('SELECT * FROM users WHERE id = ?', [newUserId]);
+        users = createdUsers;
+      }
+    }
+
     if (users.length === 0) {
       const err = new Error('Invalid credentials. User not found.');
       err.statusCode = 401;
@@ -78,18 +111,57 @@ class AuthService {
     }
 
     const user = users[0];
-    const isMatch = await comparePassword(password, user.password_hash);
+
+    // If a specific role is expected from login portal ('ADMIN' or 'FACULTY'), verify role matches
+    if (role && user.role !== role.toUpperCase()) {
+      const err = new Error('Invalid credentials. User not found.');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    // Check credentials:
+    // For faculty: correct password is strictly 'faculty123'
+    // For other users (e.g. admin): compare with stored hash
+    let isMatch = false;
+    if (user.role === 'FACULTY') {
+      if (password === 'faculty123') {
+        isMatch = true;
+        const matchesStored = await comparePassword(password, user.password_hash);
+        if (!matchesStored) {
+          const newHash = await hashPassword('faculty123');
+          await query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
+        }
+      } else {
+        isMatch = false;
+      }
+    } else {
+      isMatch = await comparePassword(password, user.password_hash);
+    }
+
     if (!isMatch) {
       const err = new Error('Invalid credentials. Password incorrect.');
       err.statusCode = 401;
       throw err;
     }
 
+    // Attach faculty details if role is FACULTY
+    let facultyProfile = null;
+    if (user.role === 'FACULTY') {
+      const [facList] = await query(
+        'SELECT id, faculty_code, name, email, department, designation FROM faculty WHERE user_id = ? OR LOWER(email) = ?',
+        [user.id, cleanEmail]
+      );
+      if (facList.length > 0) {
+        facultyProfile = facList[0];
+      }
+    }
+
     const tokenPayload = {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role
+      role: user.role,
+      faculty_id: facultyProfile ? facultyProfile.id : null
     };
 
     const token = jwt.sign(
@@ -99,15 +171,19 @@ class AuthService {
     );
 
     let department = user.role === 'ADMIN' ? 'Examination Cell' : 'Computer Science & Engineering';
-    let facultyCode = null;
-    let facultyId = null;
+    let facultyCode = facultyProfile ? facultyProfile.faculty_code : null;
+    let facultyId = facultyProfile ? facultyProfile.id : null;
 
     if (user.role === 'FACULTY') {
-      const [facRows] = await query('SELECT * FROM faculty WHERE user_id = ? OR email = ? LIMIT 1', [user.id, user.email]);
-      if (facRows && facRows.length > 0) {
-        department = facRows[0].department || department;
-        facultyCode = facRows[0].faculty_code || null;
-        facultyId = facRows[0].id;
+      if (facultyProfile && facultyProfile.department) {
+        department = facultyProfile.department;
+      } else {
+        const [facRows] = await query('SELECT * FROM faculty WHERE user_id = ? OR email = ? LIMIT 1', [user.id, user.email]);
+        if (facRows && facRows.length > 0) {
+          department = facRows[0].department || department;
+          facultyCode = facRows[0].faculty_code || facultyCode;
+          facultyId = facRows[0].id || facultyId;
+        }
       }
     }
 
@@ -119,8 +195,11 @@ class AuthService {
         email: user.email,
         role: user.role,
         department,
+        designation: facultyProfile ? facultyProfile.designation : null,
+        facultyId,
+        faculty_id: facultyId,
         facultyCode,
-        facultyId
+        faculty_code: facultyCode
       }
     };
   }

@@ -4,6 +4,7 @@ const fs = require('fs');
 
 // Ensure uploads folder exists
 const uploadDir = path.join(__dirname, '../uploads');
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -14,27 +15,44 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const uniqueSuffix =
+      Date.now() + '-' + Math.round(Math.random() * 1e9);
+
+    cb(
+      null,
+      file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname)
+    );
   }
 });
 
-// File filter for CSV files
-const csvFileFilter = (req, file, cb) => {
+// File filter for CSV (.csv) files
+const spreadsheetFileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  if (ext === '.csv' || file.mimetype === 'text/csv' || file.mimetype === 'application/vnd.ms-excel') {
+
+  const allowedExtensions = ['.csv'];
+
+  if (allowedExtensions.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only CSV files (.csv) are allowed.'), false);
+    cb(
+      new Error('Only CSV files are allowed'),
+      false
+    );
   }
 };
 
-const uploadCSV = multer({
+const uploadSpreadsheet = multer({
   storage: storage,
-  fileFilter: csvFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  fileFilter: spreadsheetFileFilter,
+  limits: {
+    fileSize: 15 * 1024 * 1024 // 15MB limit
+  }
 });
 
+// Alias for backward compatibility
+const uploadCSV = uploadSpreadsheet;
+
 module.exports = {
+  uploadSpreadsheet,
   uploadCSV
 };

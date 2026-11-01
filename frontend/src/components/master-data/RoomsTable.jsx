@@ -24,10 +24,8 @@ export default function RoomsTable({ data, loading, onDelete }) {
         <tr>
           <th>Room Number</th>
           <th>Building</th>
-          <th>Floor</th>
           <th>Capacity</th>
           <th>Grid (Rows x Cols)</th>
-          <th>Camera Verified</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -36,10 +34,8 @@ export default function RoomsTable({ data, loading, onDelete }) {
           <tr key={item.id}>
             <td><span className="badge badge-cyan">{item.room_number}</span></td>
             <td>{item.building}</td>
-            <td>Floor {item.floor}</td>
             <td style={{ fontWeight: 700 }}>{item.capacity} seats</td>
             <td>{item.rows_count} × {item.cols_count}</td>
-            <td>{item.has_camera ? '📹 Yes' : 'No'}</td>
             <td>
               <button
                 className="btn btn-danger"

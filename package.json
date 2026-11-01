@@ -5,14 +5,18 @@
   "scripts": {
     "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run backend\" \"npm run frontend\"",
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run backend\" \"npm run frontend\"",
-    "backend": "npm start --prefix backend",
+    "backend": "npm run dev --prefix backend",
     "frontend": "npm run dev --prefix frontend",
     "test": "npm test --prefix backend",
     "test:auth": "npm run test:auth --prefix backend",
     "test:duty": "npm run test:duty --prefix backend",
     "test:smart": "npm run test:smart --prefix backend",
     "test:incident": "npm run test:incident --prefix backend",
-    "test:api": "npm run test:api --prefix backend"
+    "test:notification": "npm run test:notification --prefix backend",
+    "test:api": "npm run test:api --prefix backend",
+    "seed": "npm run seed --prefix backend",
+    "seed:bmu": "npm run seed:bmu --prefix backend",
+    "migrate": "npm run migrate --prefix backend"
   },
   "keywords": [
     "examsphere"

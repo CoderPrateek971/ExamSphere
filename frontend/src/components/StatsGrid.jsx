@@ -4,44 +4,44 @@ import { Users, GraduationCap, BookOpen, Building2, CalendarCheck } from 'lucide
 export default function StatsGrid({ stats }) {
   const cards = [
     {
-      title: 'Enrolled Students',
+      title: 'Students',
       value: stats?.students ?? 0,
-      footer: 'Active Candidate Master',
+      footer: 'Enrolled',
       icon: Users,
-      color: 'rgba(99, 102, 241, 0.2)',
-      iconColor: '#818cf8'
+      color: '#edf2f7',
+      iconColor: '#345c8c'
     },
     {
-      title: 'Faculty / Invigilators',
+      title: 'Faculty',
       value: stats?.faculty ?? 0,
-      footer: 'Eligible for Duty Assignment',
+      footer: 'Available for duties',
       icon: GraduationCap,
-      color: 'rgba(16, 185, 129, 0.2)',
-      iconColor: '#34d399'
+      color: '#edf2f7',
+      iconColor: '#345c8c'
     },
     {
-      title: 'Active Courses',
+      title: 'Courses',
       value: stats?.courses ?? 0,
-      footer: 'With Difficulty Weights',
+      footer: 'In the catalogue',
       icon: BookOpen,
-      color: 'rgba(6, 182, 212, 0.2)',
-      iconColor: '#38bdf8'
+      color: '#edf2f7',
+      iconColor: '#345c8c'
     },
     {
-      title: 'Exam Rooms',
+      title: 'Rooms',
       value: stats?.rooms ?? 0,
-      footer: 'Mapped Physical Capacity',
+      footer: 'Available for exams',
       icon: Building2,
-      color: 'rgba(245, 158, 11, 0.2)',
-      iconColor: '#fbbf24'
+      color: '#edf2f7',
+      iconColor: '#345c8c'
     },
     {
-      title: 'Scheduled Exams',
+      title: 'Exams',
       value: stats?.exams ?? 0,
-      footer: 'Timetable Status',
+      footer: 'Scheduled',
       icon: CalendarCheck,
-      color: 'rgba(244, 63, 94, 0.2)',
-      iconColor: '#fb7185'
+      color: '#edf2f7',
+      iconColor: '#345c8c'
     }
   ];
 

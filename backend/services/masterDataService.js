@@ -1,4 +1,6 @@
 const { query } = require('../config/db');
+const { hashPassword } = require('../utils/passwordHelper');
+const { mapDesignationToSeniority } = require('../utils/designationHelper');
 
 /**
  * Service encapsulating business logic & data operations for Master Entities
@@ -7,28 +9,57 @@ const { query } = require('../config/db');
 class MasterDataService {
   // ===================== STUDENTS =====================
   async getAllStudents() {
-    const [rows] = await query('SELECT * FROM students ORDER BY enrollment_no ASC');
+    const [rows] = await query(`
+      SELECT s.*, 
+             COALESCE(GROUP_CONCAT(c.course_code ORDER BY c.course_code SEPARATOR ', '), 'None') AS enrolled_courses
+      FROM students s
+      LEFT JOIN student_courses sc ON s.id = sc.student_id
+      LEFT JOIN courses c ON sc.course_id = c.id
+      GROUP BY s.id
+      ORDER BY COALESCE(s.import_order, s.id) ASC, s.id ASC
+    `);
     return rows;
   }
 
-  async createStudent({ enrollment_no, name, email, department, semester, program }) {
+  async createStudent({ enrollment_no, name, email, department, semester, program, enrolled_courses }) {
     if (!enrollment_no || !name || !email || !department) {
       const err = new Error('enrollment_no, name, email, department are required.');
       err.statusCode = 400;
       throw err;
     }
+    const enrolledStr = enrolled_courses || '';
     const [result] = await query(
-      'INSERT INTO students (enrollment_no, name, email, department, semester, program) VALUES (?, ?, ?, ?, ?, ?)',
-      [enrollment_no, name, email, department, semester || 1, program || 'B.Tech']
+      'INSERT INTO students (enrollment_no, name, email, department, semester, program, enrolled_courses) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [enrollment_no, name, email, department, semester || 1, program || 'B.Tech', enrolledStr]
     );
-    return result.insertId;
+    const studentId = result.insertId;
+    if (enrolledStr && studentId) {
+      const courseCodes = enrolledStr.split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+      for (const code of courseCodes) {
+        let [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+        if (course) {
+          await query('INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)', [studentId, course.id]);
+        }
+      }
+    }
+    return studentId;
   }
 
-  async updateStudent(id, { name, email, department, semester, program }) {
+  async updateStudent(id, { name, email, department, semester, program, enrolled_courses }) {
     await query(
-      'UPDATE students SET name = ?, email = ?, department = ?, semester = ?, program = ? WHERE id = ?',
-      [name, email, department, semester, program, id]
+      'UPDATE students SET name = ?, email = ?, department = ?, semester = ?, program = ?, enrolled_courses = COALESCE(?, enrolled_courses) WHERE id = ?',
+      [name, email, department, semester, program, enrolled_courses !== undefined ? enrolled_courses : null, id]
     );
+    if (enrolled_courses !== undefined) {
+      await query('DELETE FROM student_courses WHERE student_id = ?', [id]);
+      const courseCodes = (enrolled_courses || '').split(/[,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+      for (const code of courseCodes) {
+        let [[course]] = await query('SELECT id FROM courses WHERE UPPER(course_code) = ?', [code]);
+        if (course) {
+          await query('INSERT IGNORE INTO student_courses (student_id, course_id) VALUES (?, ?)', [id, course.id]);
+        }
+      }
+    }
     return true;
   }
 
@@ -49,17 +80,47 @@ class MasterDataService {
       err.statusCode = 400;
       throw err;
     }
+    const finalDesignation = designation || 'Assistant Professor';
+    const finalSeniority = (seniority_level !== undefined && seniority_level !== null && seniority_level !== '' && !isNaN(parseInt(seniority_level, 10)))
+      ? parseInt(seniority_level, 10)
+      : mapDesignationToSeniority(finalDesignation);
+
     const [result] = await query(
       'INSERT INTO faculty (faculty_code, name, email, department, designation, seniority_level, max_duties) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [faculty_code, name, email, department, designation || 'Assistant Professor', seniority_level || 1, max_duties || 5]
+      [faculty_code, name, email, department, finalDesignation, finalSeniority, max_duties || 5]
     );
+
+    // Sync faculty user account with default password 'faculty123'
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const defaultFacultyHash = await hashPassword('faculty123');
+      const [existingUsers] = await query('SELECT id FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+      let userId;
+      if (existingUsers.length > 0) {
+        userId = existingUsers[0].id;
+        await query('UPDATE users SET password_hash = ?, role = "FACULTY" WHERE id = ?', [defaultFacultyHash, userId]);
+      } else {
+        const [insUser] = await query(
+          'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, "FACULTY")',
+          [name, cleanEmail, defaultFacultyHash]
+        );
+        userId = insUser.insertId;
+      }
+      await query('UPDATE faculty SET user_id = ? WHERE id = ?', [userId, result.insertId]);
+    }
+
     return result.insertId;
   }
 
   async updateFaculty(id, { name, email, department, designation, seniority_level, max_duties }) {
+    const finalDesignation = designation || 'Assistant Professor';
+    const finalSeniority = (seniority_level !== undefined && seniority_level !== null && seniority_level !== '' && !isNaN(parseInt(seniority_level, 10)))
+      ? parseInt(seniority_level, 10)
+      : mapDesignationToSeniority(finalDesignation);
+
     await query(
       'UPDATE faculty SET name = ?, email = ?, department = ?, designation = ?, seniority_level = ?, max_duties = ? WHERE id = ?',
-      [name, email, department, designation, seniority_level, max_duties, id]
+      [name, email, department, finalDesignation, finalSeniority, max_duties, id]
     );
     return true;
   }
@@ -107,7 +168,7 @@ class MasterDataService {
     return rows;
   }
 
-  async createRoom({ room_number, building, floor, capacity, rows_count, cols_count, has_camera }) {
+  async createRoom({ room_number, building, capacity, rows_count, cols_count }) {
     if (!room_number || !building || !capacity) {
       const err = new Error('room_number, building, capacity are required.');
       err.statusCode = 400;
@@ -117,16 +178,16 @@ class MasterDataService {
     const cCount = cols_count || Math.ceil(capacity / rCount);
 
     const [result] = await query(
-      'INSERT INTO rooms (room_number, building, floor, capacity, rows_count, cols_count, has_camera) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [room_number, building, floor || 1, capacity, rCount, cCount, has_camera !== false]
+      'INSERT INTO rooms (room_number, building, capacity, rows_count, cols_count) VALUES (?, ?, ?, ?, ?)',
+      [room_number, building, capacity, rCount, cCount]
     );
     return result.insertId;
   }
 
-  async updateRoom(id, { room_number, building, floor, capacity, rows_count, cols_count, has_camera, is_available }) {
+  async updateRoom(id, { room_number, building, capacity, rows_count, cols_count, is_available }) {
     await query(
-      'UPDATE rooms SET room_number = ?, building = ?, floor = ?, capacity = ?, rows_count = ?, cols_count = ?, has_camera = ?, is_available = ? WHERE id = ?',
-      [room_number, building, floor, capacity, rows_count, cols_count, has_camera, is_available, id]
+      'UPDATE rooms SET room_number = ?, building = ?, capacity = ?, rows_count = ?, cols_count = ?, is_available = ? WHERE id = ?',
+      [room_number, building, capacity, rows_count, cols_count, is_available, id]
     );
     return true;
   }
