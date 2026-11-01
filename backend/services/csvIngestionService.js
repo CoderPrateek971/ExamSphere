@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const { query } = require('../config/db');
+const { hashPassword } = require('../utils/passwordHelper');
 const { parseAndValidateSpreadsheet, normalizeRow, parseSemester } = require('../utils/csvParser');
 
 const { mapDesignationToSeniority } = require('../utils/designationHelper');
@@ -82,6 +83,7 @@ const INGESTION_STRATEGIES = {
 
   faculty: async (rows) => {
     let count = 0;
+    const defaultFacultyHash = await hashPassword('faculty123');
     for (const row of rows) {
       const designation = row.designation || 'Assistant Professor';
       // Automatically derive seniority level from designation if not explicitly provided
@@ -101,6 +103,25 @@ const INGESTION_STRATEGIES = {
            max_duties = VALUES(max_duties)`,
         [row.faculty_code, row.name, row.email, row.department || 'SOET', designation, seniorityLevel, extractNumber(row.max_duties, 5)]
       );
+
+      // Ensure faculty user account exists in users table with default password 'faculty123'
+      if (row.email) {
+        const cleanEmail = row.email.trim().toLowerCase();
+        const [existingUsers] = await query('SELECT id FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+        let userId;
+        if (existingUsers.length > 0) {
+          userId = existingUsers[0].id;
+          await query('UPDATE users SET password_hash = ?, role = "FACULTY" WHERE id = ?', [defaultFacultyHash, userId]);
+        } else {
+          const [insUser] = await query(
+            'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, "FACULTY")',
+            [row.name, cleanEmail, defaultFacultyHash]
+          );
+          userId = insUser.insertId;
+        }
+        await query('UPDATE faculty SET user_id = ? WHERE LOWER(email) = ?', [userId, cleanEmail]);
+      }
+
       count++;
     }
     return count;

@@ -81,10 +81,10 @@ export const api = {
   },
 
   // Module 1: Authentication
-  login(email, password) {
+  login(email, password, role) {
     return this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, role }),
     });
   },
 

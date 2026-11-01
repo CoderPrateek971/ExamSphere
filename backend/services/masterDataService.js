@@ -1,4 +1,5 @@
 const { query } = require('../config/db');
+const { hashPassword } = require('../utils/passwordHelper');
 const { mapDesignationToSeniority } = require('../utils/designationHelper');
 
 /**
@@ -88,6 +89,26 @@ class MasterDataService {
       'INSERT INTO faculty (faculty_code, name, email, department, designation, seniority_level, max_duties) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [faculty_code, name, email, department, finalDesignation, finalSeniority, max_duties || 5]
     );
+
+    // Sync faculty user account with default password 'faculty123'
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const defaultFacultyHash = await hashPassword('faculty123');
+      const [existingUsers] = await query('SELECT id FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+      let userId;
+      if (existingUsers.length > 0) {
+        userId = existingUsers[0].id;
+        await query('UPDATE users SET password_hash = ?, role = "FACULTY" WHERE id = ?', [defaultFacultyHash, userId]);
+      } else {
+        const [insUser] = await query(
+          'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, "FACULTY")',
+          [name, cleanEmail, defaultFacultyHash]
+        );
+        userId = insUser.insertId;
+      }
+      await query('UPDATE faculty SET user_id = ? WHERE id = ?', [userId, result.insertId]);
+    }
+
     return result.insertId;
   }
 

@@ -35,10 +35,12 @@ export default function PortalLoginView({ onLoginSuccess }) {
       return;
     }
 
+    const expectedRole = selectedPortal === 'ADMIN' ? 'ADMIN' : 'FACULTY';
+
     setError('');
     setLoading(true);
     try {
-      const res = await api.login(trimmedEmail, password);
+      const res = await api.login(trimmedEmail, password, expectedRole);
       api.setToken(res.data.token);
       api.setUser(res.data.user);
       onLoginSuccess(res.data.user);

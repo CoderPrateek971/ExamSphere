@@ -63,7 +63,7 @@ class AuthService {
   /**
    * Authenticate credentials and generate JWT token
    */
-  async loginUser({ email, password }) {
+  async loginUser({ email, password, role }) {
     const trimmedEmail = email ? String(email).trim() : '';
     const trimmedPass = password ? String(password).trim() : '';
     if (!trimmedEmail && !trimmedPass) {
@@ -90,8 +90,8 @@ class AuthService {
       const [facMatches] = await query('SELECT * FROM faculty WHERE LOWER(email) = ?', [cleanEmail]);
       if (facMatches.length > 0) {
         const fac = facMatches[0];
-        const passToHash = password || 'faculty123';
-        const passwordHash = await hashPassword(passToHash);
+        const defaultFacultyPass = 'faculty123';
+        const passwordHash = await hashPassword(defaultFacultyPass);
         const [userIns] = await query(
           'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)',
           [fac.name, cleanEmail, passwordHash, 'FACULTY']
@@ -111,18 +111,37 @@ class AuthService {
     }
 
     const user = users[0];
-    const isMatch = await comparePassword(password, user.password_hash);
-    if (!isMatch) {
-      // In case password was updated or default faculty fallback
-      if (user.role === 'FACULTY' && (password === 'faculty123' || password === '12345' || password === 'admin123')) {
-        // Allow fallback and update hash
-        const newHash = await hashPassword(password);
-        await query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
+
+    // If a specific role is expected from login portal ('ADMIN' or 'FACULTY'), verify role matches
+    if (role && user.role !== role.toUpperCase()) {
+      const err = new Error('Invalid credentials. User not found.');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    // Check credentials:
+    // For faculty: correct password is strictly 'faculty123'
+    // For other users (e.g. admin): compare with stored hash
+    let isMatch = false;
+    if (user.role === 'FACULTY') {
+      if (password === 'faculty123') {
+        isMatch = true;
+        const matchesStored = await comparePassword(password, user.password_hash);
+        if (!matchesStored) {
+          const newHash = await hashPassword('faculty123');
+          await query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
+        }
       } else {
-        const err = new Error('Invalid credentials. Password incorrect.');
-        err.statusCode = 401;
-        throw err;
+        isMatch = false;
       }
+    } else {
+      isMatch = await comparePassword(password, user.password_hash);
+    }
+
+    if (!isMatch) {
+      const err = new Error('Invalid credentials. Password incorrect.');
+      err.statusCode = 401;
+      throw err;
     }
 
     // Attach faculty details if role is FACULTY
